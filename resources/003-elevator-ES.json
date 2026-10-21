@@ -1,0 +1,5 @@
+{
+  "title": "El ascensor",
+  "prompt": "Cada mañana un hombre baja en ascensor desde su apartamento del piso 10 hasta la planta baja. Al volver a casa sube hasta el piso 7 y recorre el resto por las escaleras, excepto los días de lluvia, cuando sube hasta el 10.",
+  "solution": "El hombre es muy bajito y solo alcanza el botón del piso 7. Los días de lluvia lleva paraguas, que le permite pulsar el botón del piso 10."
+}
