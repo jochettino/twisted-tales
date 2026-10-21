@@ -23,11 +23,13 @@ type Card struct {
 // Card files carry the language as a file name suffix, e.g. 001-hiccups-EN.json.
 var languages = []string{"EN", "ES"}
 
-// parseLang returns a supported language, falling back to the default.
-func parseLang(s string) string {
-	s = strings.ToUpper(s)
-	if slices.Contains(languages, s) {
-		return s
+// resolveLang picks the language for a request: the explicit ?lang= value if
+// supported, else the saved one, else the default.
+func resolveLang(query, saved string) string {
+	for _, s := range []string{query, saved} {
+		if s = strings.ToUpper(s); slices.Contains(languages, s) {
+			return s
+		}
 	}
 	return languages[0]
 }

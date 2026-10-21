@@ -71,10 +71,19 @@ func TestLoadCardsErrors(t *testing.T) {
 	}
 }
 
-func TestParseLang(t *testing.T) {
-	for in, want := range map[string]string{"": "EN", "es": "ES", "ES": "ES", "en": "EN", "fr": "EN"} {
-		if got := parseLang(in); got != want {
-			t.Errorf("parseLang(%q) = %q, want %q", in, got, want)
+func TestResolveLang(t *testing.T) {
+	tests := []struct{ query, saved, want string }{
+		{"", "", "EN"},
+		{"es", "", "ES"},
+		{"ES", "EN", "ES"},
+		{"en", "ES", "EN"},
+		{"", "es", "ES"},
+		{"fr", "ES", "ES"},
+		{"fr", "de", "EN"},
+	}
+	for _, tt := range tests {
+		if got := resolveLang(tt.query, tt.saved); got != tt.want {
+			t.Errorf("resolveLang(%q, %q) = %q, want %q", tt.query, tt.saved, got, tt.want)
 		}
 	}
 }
