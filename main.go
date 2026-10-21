@@ -13,6 +13,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := ":" + port
+	log.Printf("listening on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, newMux(cards)))
+}
+
+func newMux(cards map[string][]Card) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/cards/1", http.StatusFound)
@@ -33,12 +43,5 @@ func main() {
 			log.Print(err)
 		}
 	})
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	addr := ":" + port
-	log.Printf("listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	return mux
 }
