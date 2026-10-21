@@ -2,40 +2,40 @@
 
 Twisted Tales is a social mystery card game of lateral thinking where players work together like detectives to reconstruct bizarre, macabre, or seemingly impossible situations.
 
-## What Is It About?
+New to the game? See [How to Play](docs/how-to-play.md).
 
-Each card features a morbid, eerie puzzle, usually involving an untimely death, an elaborate accident, or a mysterious crime.
+This repository contains a small web prototype that shows one card at a time, in English or Spanish.
 
-- **Front of the card:** a cryptic snapshot of the aftermath (the prompt).
-- **Back of the card:** the full, hidden backstory of what actually occurred.
+## Run it locally
 
-## How to Play
+Requirements: [Go](https://go.dev/dl/) 1.22 or newer.
 
-1. **Pick the Game Master (the Narrator).** One player takes a card. They read the front prompt out loud to the group and privately read the solution on the back.
-2. **Interrogate the Narrator.** The rest of the players ask questions to piece together what happened.
-3. **The core rule: yes or no only.** The Game Master can only answer:
-   - "Yes"
-   - "No"
-   - "Irrelevant" (if the question leads down a pointless dead end)
-4. **Solve the mystery.** Players discuss theories, discard false assumptions, and ask increasingly specific questions until someone reconstructs the critical sequence of events. Once the core truth is uncovered, the Game Master reads the full solution aloud.
+```sh
+go run .
+```
 
-## A Classic Example
+Then open <http://localhost:8080>. To use another port, set the `PORT` environment variable:
 
-**The prompt (read aloud):**
+```sh
+PORT=3000 go run .
+```
 
-> "A man enters a bar and asks for a glass of water. The bartender pulls out a shotgun and points it directly at him. The man says 'Thank you' and walks out."
+Cards are embedded into the binary, so restart the server after adding or editing a card.
 
-**How the detective work sounds:**
+## Tech stack
 
-- Player: "Did the man intend to rob the bar?" → Narrator: "No."
-- Player: "Were they enemies?" → Narrator: "No."
-- Player: "Was the man in physical distress before entering?" → Narrator: "Yes."
-- Player: "Did the glass of water have to do with an illness?" → Narrator: "No, not an illness."
-- Player: "Did he have the hiccups?" → Narrator: "Yes!"
-- Player: "So the bartender scared the hiccups out of him with the gun?" → Narrator: "Exactly."
+- **Go**, standard library only (`net/http`, `html/template`, `embed`, `encoding/json`), no external dependencies.
+- **Cards** are JSON files in `resources/`, named `xxx-smalltitle-LANG.json` (e.g. `001-hiccups-EN.json`), with `title`, `prompt` and `solution` fields. Every card must exist in every language (EN and ES).
+- **Frontend** is server-rendered HTML and CSS in `templates/card.html`, with no JavaScript.
 
-## Why It Works
+## Testing
 
-- **No board or table needed:** you can play it anywhere, including road trips, dinner tables, camping, or pubs.
-- **Flexible group size:** works equally well with two people or a room of ten.
-- **Lateral thinking over trivia:** it's not about knowledge; it's about challenging hidden assumptions.
+```sh
+go test ./...   # unit and HTTP route tests
+go vet ./...    # static checks
+gofmt -l .      # lists files that need formatting (no output means all good)
+```
+
+The tests cover card loading (ordering, language suffixes, EN/ES parity and error cases), page navigation, and the HTTP routes (redirect, 404s, solution hidden by default, language switch, help section). Because they load the real files in `resources/`, adding a card without its translation makes them fail.
+
+For a quick visual check, run `go run .` and open <http://localhost:8080>.

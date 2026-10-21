@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"slices"
 	"sort"
 	"strings"
@@ -35,7 +36,11 @@ func parseLang(s string) string {
 // and groups the cards by language, ordered by file name so the numeric prefix
 // defines the card order. Every language must have the same cards.
 func loadCards() (map[string][]Card, error) {
-	entries, err := resources.ReadDir("resources")
+	return loadCardsFrom(resources, "resources")
+}
+
+func loadCardsFrom(fsys fs.ReadDirFS, dir string) (map[string][]Card, error) {
+	entries, err := fsys.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +58,7 @@ func loadCards() (map[string][]Card, error) {
 		if !slices.Contains(languages, lang) {
 			return nil, fmt.Errorf("%s: unknown language %q", e.Name(), lang)
 		}
-		data, err := resources.ReadFile("resources/" + e.Name())
+		data, err := fs.ReadFile(fsys, dir+"/"+e.Name())
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +76,7 @@ func loadCards() (map[string][]Card, error) {
 		}
 	}
 	if len(cards[languages[0]]) == 0 {
-		return nil, fmt.Errorf("no cards found in resources/")
+		return nil, fmt.Errorf("no cards found in %s/", dir)
 	}
 	return cards, nil
 }
