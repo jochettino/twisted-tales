@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twisted Tales</title>
+<style>
+  body { font-family: sans-serif; max-width: 40em; margin: 2em auto; padding: 0 1em; }
+  .card { border: 1px solid #333; border-radius: 8px; padding: 1em 1.5em; margin: 1em 0; }
+  .solution { background: #f3f3f3; }
+  nav a, nav span { margin-right: 1em; }
+  nav .disabled { color: #aaa; }
+  details.help { border: 1px solid #333; border-radius: 8px; padding: 0.5em 1.5em; margin: 1em 0; }
+  details.help summary { cursor: pointer; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Twisted Tales</h1>
+<p>{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}} &middot; <a href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a></p>
+<div class="card">
+  <h2>{{.Card.Title}}</h2>
+  <p>{{.Card.Prompt}}</p>
+  {{if .Solution}}
+  <div class="solution"><strong>{{.L.Solution}}</strong> {{.Card.Solution}}</div>
+  {{end}}
+</div>
+<nav>
+  {{if .Prev}}<a href="/cards/{{.Prev}}?lang={{.Lang}}">&larr; {{.L.Back}}</a>{{else}}<span class="disabled">&larr; {{.L.Back}}</span>{{end}}
+  {{if .Solution}}<a href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
+  {{if .Next}}<a href="/cards/{{.Next}}?lang={{.Lang}}">{{.L.Next}} &rarr;</a>{{else}}<span class="disabled">{{.L.Next}} &rarr;</span>{{end}}
+</nav>
+<details class="help">
+  <summary>{{.L.Help}}</summary>
+  <p>{{.L.HelpIntro}}</p>
+  <ol>
+    {{range .L.HelpSteps}}<li>{{.}}</li>
+    {{end}}</ol>
+</details>
+</body>
+</html>
