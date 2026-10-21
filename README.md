@@ -27,6 +27,7 @@ Cards are embedded into the binary, so restart the server after adding or editin
 - **Go**, standard library only (`net/http`, `html/template`, `embed`, `encoding/json`), no external dependencies.
 - **Cards** are JSON files in `resources/`, named `xxx-smalltitle-LANG.json` (e.g. `001-hiccups-EN.json`), with `title`, `prompt` and `solution` fields. Every card must exist in every language (EN and ES).
 - **Frontend** is server-rendered HTML and CSS in `templates/card.html`, with no JavaScript.
+- **User state** (selected language and current card) is remembered in browser cookies, so the server stores nothing. Reopening the site resumes where you left off. Cookies are marked `Secure` when served over https, and still work on plain `http://localhost`.
 
 ## Testing
 
@@ -36,6 +37,6 @@ go vet ./...    # static checks
 gofmt -l .      # lists files that need formatting (no output means all good)
 ```
 
-The tests cover card loading (ordering, language suffixes, EN/ES parity and error cases), page navigation, and the HTTP routes (redirect, 404s, solution hidden by default, language switch, help section). Because they load the real files in `resources/`, adding a card without its translation makes them fail.
+The tests cover card loading (ordering, language suffixes, EN/ES parity and error cases), page navigation, and the HTTP routes (redirect, 404s, solution hidden by default, language switch, help section, saved language and card cookies). Because they load the real files in `resources/`, adding a card without its translation makes them fail.
 
 For a quick visual check, run `go run .` and open <http://localhost:8080>.
