@@ -1,5 +1,7 @@
 # Twisted Tales
 
+[![Vercel status](https://img.shields.io/website?url=https%3A%2F%2Ftwisted-tales-eight.vercel.app&up_message=OK&down_message=KO&up_color=brightgreen&down_color=red&label=Vercel)](https://twisted-tales-eight.vercel.app)
+
 Twisted Tales is a social mystery card game of lateral thinking where players work together like detectives to reconstruct bizarre, macabre, or seemingly impossible situations.
 
 New to the game? See [How to Play](docs/how-to-play.md).
