@@ -102,6 +102,7 @@ func newPage(cards map[string][]Card, lang string, n int, solution bool) (page, 
 		Lang:     lang,
 		Other:    other,
 		L:        ui[lang],
+		RepoURL:  repoURL,
 	}
 	if n > 1 {
 		p.Prev = n - 1

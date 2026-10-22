@@ -74,6 +74,18 @@ func TestHelpSection(t *testing.T) {
 	}
 }
 
+func TestAboutSection(t *testing.T) {
+	for path, want := range map[string]string{"/cards/1": "<summary>About</summary>", "/cards/1?lang=ES": "<summary>Acerca de</summary>"} {
+		body := get(t, path).Body.String()
+		if !strings.Contains(body, want) {
+			t.Errorf("%s: About section missing", path)
+		}
+		if !strings.Contains(body, `href="`+repoURL+`"`) {
+			t.Errorf("%s: repo link missing", path)
+		}
+	}
+}
+
 func cookie(name, value string) *http.Cookie { return &http.Cookie{Name: name, Value: value} }
 
 func setCookies(rec *httptest.ResponseRecorder) map[string]string {
