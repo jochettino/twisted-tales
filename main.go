@@ -83,7 +83,7 @@ func newMux(cards map[string][]Card) *http.ServeMux {
 		}
 		setCookie(w, r, langCookie, lang)
 		setCookie(w, r, cardCookie, strconv.Itoa(n))
-		if err := renderPage(w, p); err != nil {
+		if err := renderPage(w, p, q.Get("partial") == "1"); err != nil {
 			log.Print(err)
 		}
 	})

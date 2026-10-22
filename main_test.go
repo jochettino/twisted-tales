@@ -108,6 +108,39 @@ func TestPartialUpdateHooks(t *testing.T) {
 	}
 }
 
+func TestPartialResponse(t *testing.T) {
+	full := get(t, "/cards/2?lang=ES")
+	part := get(t, "/cards/2?lang=ES&partial=1")
+	if part.Code != http.StatusOK {
+		t.Fatalf("partial = %d, want 200", part.Code)
+	}
+	body := part.Body.String()
+	for _, want := range []string{`data-swap="lang"`, `data-swap="card"`, `data-swap="nav"`, "Carta 2 de"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("partial is missing %q", want)
+		}
+	}
+	for _, unwanted := range []string{"<html", "<style", "<script", "<details", "<h1>"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("partial should not contain %q", unwanted)
+		}
+	}
+	if part.Body.Len() >= full.Body.Len()/2 {
+		t.Errorf("partial is %d bytes, full page %d: expected well under half", part.Body.Len(), full.Body.Len())
+	}
+	// Same state handling as the full page: cookies are saved, bad cards 404.
+	if got := setCookies(part); got["lang"] != "ES" || got["card"] != "2" {
+		t.Errorf("partial cookies = %v, want lang=ES card=2", got)
+	}
+	if rec := get(t, "/cards/99?partial=1"); rec.Code != http.StatusNotFound {
+		t.Errorf("partial of missing card = %d, want 404", rec.Code)
+	}
+	// Solution reveal works in the partial too.
+	if sol := get(t, "/cards/2?solution=1&partial=1").Body.String(); !strings.Contains(sol, `class="solution"`) {
+		t.Error("partial with solution=1 should show the solution")
+	}
+}
+
 func cookie(name, value string) *http.Cookie { return &http.Cookie{Name: name, Value: value} }
 
 func setCookies(rec *httptest.ResponseRecorder) map[string]string {

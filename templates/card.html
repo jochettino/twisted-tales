@@ -76,23 +76,10 @@
 <main>
 <header>
   <h1>Twisted <span>Tales</span></h1>
-  <a class="lang" data-swap="lang" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>
+  {{template "lang-link" .}}
 </header>
-<article class="card" data-swap="card" aria-live="polite">
-  <div class="card-inner">
-    <p class="counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
-    <h2>{{.Card.Title}}</h2>
-    <p class="prompt">{{.Card.Prompt}}</p>
-    {{if .Solution}}
-    <div class="solution"><strong>{{.L.Solution}}</strong> {{.Card.Solution}}</div>
-    {{end}}
-  </div>
-</article>
-<nav data-swap="nav">
-  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
-  {{if .Prev}}<a id="nav-prev" data-nav="card" href="/cards/{{.Prev}}?lang={{.Lang}}">&larr; {{.L.Back}}</a>{{else}}<span class="disabled">&larr; {{.L.Back}}</span>{{end}}
-  {{if .Next}}<a id="nav-next" data-nav="card" href="/cards/{{.Next}}?lang={{.Lang}}">{{.L.Next}} &rarr;</a>{{else}}<span class="disabled">{{.L.Next}} &rarr;</span>{{end}}
-</nav>
+{{template "card-view" .}}
+{{template "nav-buttons" .}}
 <details class="help">
   <summary>{{.L.Help}}</summary>
   <p>{{.L.HelpIntro}}</p>
@@ -128,7 +115,9 @@
     var id = ++latest;
     var focused = document.activeElement && document.activeElement.id;
     try {
-      var res = await fetch(url, { credentials: 'same-origin' });
+      var partial = new URL(url, location.href);
+      partial.searchParams.set('partial', '1');
+      var res = await fetch(partial, { credentials: 'same-origin' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var doc = new DOMParser().parseFromString(await res.text(), 'text/html');
       if (id !== latest) return; // a newer click superseded this one
@@ -156,3 +145,23 @@
 </script>
 </body>
 </html>
+
+{{define "lang-link"}}<a class="lang" data-swap="lang" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>{{end}}
+{{define "card-view"}}<article class="card" data-swap="card" aria-live="polite">
+  <div class="card-inner">
+    <p class="counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
+    <h2>{{.Card.Title}}</h2>
+    <p class="prompt">{{.Card.Prompt}}</p>
+    {{if .Solution}}
+    <div class="solution"><strong>{{.L.Solution}}</strong> {{.Card.Solution}}</div>
+    {{end}}
+  </div>
+</article>{{end}}
+{{define "nav-buttons"}}<nav data-swap="nav">
+  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
+  {{if .Prev}}<a id="nav-prev" data-nav="card" href="/cards/{{.Prev}}?lang={{.Lang}}">&larr; {{.L.Back}}</a>{{else}}<span class="disabled">&larr; {{.L.Back}}</span>{{end}}
+  {{if .Next}}<a id="nav-next" data-nav="card" href="/cards/{{.Next}}?lang={{.Lang}}">{{.L.Next}} &rarr;</a>{{else}}<span class="disabled">{{.L.Next}} &rarr;</span>{{end}}
+</nav>{{end}}
+{{define "partial"}}{{template "lang-link" .}}
+{{template "card-view" .}}
+{{template "nav-buttons" .}}{{end}}
