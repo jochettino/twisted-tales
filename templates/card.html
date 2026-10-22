@@ -63,11 +63,12 @@
   nav .disabled { color: #4a4a4a; border-color: #333; }
   a:focus-visible, summary:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
 
+  details.help + details.help { margin-top: 0.75rem; }
   details.help { margin-top: 1.5rem; border: 1px solid #444; border-radius: 6px; padding: 0 1rem; font-size: 0.95rem; }
   details.help summary { cursor: pointer; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;
                          font-size: 0.85rem; padding: 0.9rem 0; min-height: 3rem; }
   details.help[open] summary { color: var(--red); }
-  details.help ol { padding-left: 1.25rem; }
+  details.help ol, details.help ul { padding-left: 1.25rem; }
   details.help li { margin-bottom: 0.5rem; }
 </style>
 </head>
@@ -98,6 +99,13 @@
   <ol>
     {{range .L.HelpSteps}}<li>{{.}}</li>
     {{end}}</ol>
+</details>
+<details class="help">
+  <summary>{{.L.About}}</summary>
+  <ul>
+    {{range .L.AboutPoints}}<li>{{.}}</li>
+    {{end}}<li>{{.L.AboutCode}} <a href="{{.RepoURL}}" target="_blank" rel="noopener">{{.L.AboutRepo}}</a>.</li>
+  </ul>
 </details>
 </main>
 </body>

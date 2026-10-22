@@ -15,7 +15,12 @@ type labels struct {
 	Card, Of, Back, Next, Show, Hide, Solution, SwitchTo string
 	Help, HelpIntro                                      string
 	HelpSteps                                            []string
+	About, AboutCode, AboutRepo                          string
+	AboutPoints                                          []string
 }
+
+// repoURL is linked from the About section.
+const repoURL = "https://github.com/jochettino/twisted-tales"
 
 var ui = map[string]labels{
 	"EN": {
@@ -31,6 +36,14 @@ var ui = map[string]labels{
 			"Keep asking and discussing theories until someone reconstructs the key events. Then the Game Master reads the full solution aloud.",
 			"Use \"Next\" and \"Back\" to move between cards. You always start from the prompt.",
 		},
+		About: "About",
+		AboutPoints: []string{
+			"This is a personal project.",
+			"This app is an experiment, made for testing purposes only. It is not a production-ready app.",
+			"Share it with friends.",
+		},
+		AboutCode: "If you want to see the source code, you can visit my",
+		AboutRepo: "GitHub repo",
 	},
 	"ES": {
 		Card: "Carta", Of: "de", Back: "Atrás", Next: "Siguiente",
@@ -45,6 +58,14 @@ var ui = map[string]labels{
 			"Seguid preguntando y debatiendo teorías hasta que alguien reconstruya los hechos clave. Entonces el Director de Juego lee la solución completa en voz alta.",
 			"Usad «Siguiente» y «Atrás» para moveros entre cartas. Siempre empezáis por el enunciado.",
 		},
+		About: "Acerca de",
+		AboutPoints: []string{
+			"Este es un proyecto personal.",
+			"Esta aplicación es un experimento, creada solo con fines de prueba. No es una aplicación lista para producción.",
+			"Compártelo con tus amigos.",
+		},
+		AboutCode: "Si quieres ver el código fuente, puedes visitar mi",
+		AboutRepo: "repositorio de GitHub",
 	},
 }
 
@@ -59,6 +80,7 @@ type page struct {
 	L        labels
 	Prev     int // 0 when there is no previous card
 	Next     int // 0 when there is no next card
+	RepoURL  string
 }
 
 func renderPage(w io.Writer, p page) error {
