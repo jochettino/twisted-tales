@@ -76,9 +76,9 @@
 <main>
 <header>
   <h1>Twisted <span>Tales</span></h1>
-  <a class="lang" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>
+  <a class="lang" data-swap="lang" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>
 </header>
-<article class="card">
+<article class="card" data-swap="card" aria-live="polite">
   <div class="card-inner">
     <p class="counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
     <h2>{{.Card.Title}}</h2>
@@ -88,10 +88,10 @@
     {{end}}
   </div>
 </article>
-<nav>
-  {{if .Solution}}<a class="toggle" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
-  {{if .Prev}}<a href="/cards/{{.Prev}}?lang={{.Lang}}">&larr; {{.L.Back}}</a>{{else}}<span class="disabled">&larr; {{.L.Back}}</span>{{end}}
-  {{if .Next}}<a href="/cards/{{.Next}}?lang={{.Lang}}">{{.L.Next}} &rarr;</a>{{else}}<span class="disabled">{{.L.Next}} &rarr;</span>{{end}}
+<nav data-swap="nav">
+  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
+  {{if .Prev}}<a id="nav-prev" data-nav="card" href="/cards/{{.Prev}}?lang={{.Lang}}">&larr; {{.L.Back}}</a>{{else}}<span class="disabled">&larr; {{.L.Back}}</span>{{end}}
+  {{if .Next}}<a id="nav-next" data-nav="card" href="/cards/{{.Next}}?lang={{.Lang}}">{{.L.Next}} &rarr;</a>{{else}}<span class="disabled">{{.L.Next}} &rarr;</span>{{end}}
 </nav>
 <details class="help">
   <summary>{{.L.Help}}</summary>
@@ -109,5 +109,50 @@
   </ul>
 </details>
 </main>
+<script>
+// Progressive enhancement: Back, Next and Show/Hide solution swap only the
+// card, the buttons and the language link instead of reloading the page.
+// Without JavaScript (or if anything fails) the links work as normal links.
+(function () {
+  var latest = 0;
+
+  function swap(doc) {
+    document.querySelectorAll('[data-swap]').forEach(function (old) {
+      var fresh = doc.querySelector('[data-swap="' + old.getAttribute('data-swap') + '"]');
+      if (fresh) old.replaceWith(document.importNode(fresh, true));
+    });
+  }
+
+  // mode: "push" (new history entry), "replace" or "none" (back/forward).
+  async function load(url, mode) {
+    var id = ++latest;
+    var focused = document.activeElement && document.activeElement.id;
+    try {
+      var res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      if (id !== latest) return; // a newer click superseded this one
+      swap(doc);
+      if (mode === 'push') history.pushState(null, '', url);
+      if (mode === 'replace') history.replaceState(null, '', url);
+      if (mode === 'push') window.scrollTo(0, 0);
+      var el = focused && document.getElementById(focused);
+      if (el && el.tagName === 'A') el.focus();
+    } catch (err) {
+      if (id === latest) location.href = url;
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest('a[data-nav]');
+    if (!a) return;
+    e.preventDefault();
+    load(a.href, a.getAttribute('data-nav') === 'card' ? 'push' : 'replace');
+  });
+
+  window.addEventListener('popstate', function () { load(location.href, 'none'); });
+})();
+</script>
 </body>
 </html>

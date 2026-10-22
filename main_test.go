@@ -89,6 +89,25 @@ func TestAboutSection(t *testing.T) {
 	}
 }
 
+func TestPartialUpdateHooks(t *testing.T) {
+	body := get(t, "/cards/2").Body.String()
+	for _, want := range []string{
+		`data-swap="lang"`, `data-swap="card"`, `data-swap="nav"`,
+		`id="nav-solution" data-nav="solution" href="/cards/2?lang=EN&solution=1"`,
+		`id="nav-prev" data-nav="card" href="/cards/1?lang=EN"`,
+		`id="nav-next" data-nav="card" href="/cards/3?lang=EN"`,
+		"async function load(", // the enhancement script survived templating
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page is missing %q", want)
+		}
+	}
+	// The first card has nothing before it: Back is a disabled span, not a link.
+	if first := get(t, "/cards/1").Body.String(); strings.Contains(first, `id="nav-prev"`) {
+		t.Error("Back should not be a link on the first card")
+	}
+}
+
 func cookie(name, value string) *http.Cookie { return &http.Cookie{Name: name, Value: value} }
 
 func setCookies(rec *httptest.ResponseRecorder) map[string]string {
