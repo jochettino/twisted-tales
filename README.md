@@ -44,3 +44,7 @@ gofmt -l .      # lists files that need formatting (no output means all good)
 The tests cover card loading (ordering, language suffixes, EN/ES parity and error cases), page navigation, and the HTTP routes (redirect, 404s, solution hidden by default, language switch, help section, saved language and card cookies). Because they load the real files in `resources/`, adding a card without its translation makes them fail.
 
 For a quick visual check, run `go run .` and open <http://localhost:8080>.
+
+## Credits
+
+Many of the cards were adapted from [yesnogame.net](https://yesnogame.net), which publishes these situation puzzles in several languages. Where a puzzle was available in only one language there, the other language is our own translation. Thanks to the authors and community behind that site.

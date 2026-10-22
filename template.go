@@ -15,12 +15,15 @@ type labels struct {
 	Card, Of, Back, Next, Show, Hide, Solution, SwitchTo string
 	Help, HelpIntro                                      string
 	HelpSteps                                            []string
-	About, AboutCode, AboutRepo                          string
+	About, AboutCode, AboutRepo, AboutCards              string
 	AboutPoints                                          []string
 }
 
-// repoURL is linked from the About section.
-const repoURL = "https://github.com/jochettino/twisted-tales"
+// repoURL and cardsSourceURL are linked from the About section.
+const (
+	repoURL        = "https://github.com/jochettino/twisted-tales"
+	cardsSourceURL = "https://yesnogame.net"
+)
 
 var ui = map[string]labels{
 	"EN": {
@@ -42,8 +45,9 @@ var ui = map[string]labels{
 			"This app is an experiment, made for testing purposes only. It is not a production-ready app.",
 			"Share it with friends.",
 		},
-		AboutCode: "If you want to see the source code, you can visit my",
-		AboutRepo: "GitHub repo",
+		AboutCode:  "If you want to see the source code, you can visit my",
+		AboutRepo:  "GitHub repo",
+		AboutCards: "Many of the cards come from",
 	},
 	"ES": {
 		Card: "Carta", Of: "de", Back: "Atrás", Next: "Siguiente",
@@ -64,8 +68,9 @@ var ui = map[string]labels{
 			"Esta aplicación es un experimento, creada solo con fines de prueba. No es una aplicación lista para producción.",
 			"Compártelo con tus amigos.",
 		},
-		AboutCode: "Si quieres ver el código fuente, puedes visitar mi",
-		AboutRepo: "repositorio de GitHub",
+		AboutCode:  "Si quieres ver el código fuente, puedes visitar mi",
+		AboutRepo:  "repositorio de GitHub",
+		AboutCards: "Muchas de las cartas proceden de",
 	},
 }
 
@@ -81,6 +86,7 @@ type page struct {
 	Prev     int // 0 when there is no previous card
 	Next     int // 0 when there is no next card
 	RepoURL  string
+	CardsURL string
 }
 
 func renderPage(w io.Writer, p page) error {
