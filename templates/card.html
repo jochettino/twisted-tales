@@ -2,31 +2,94 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
 <title>Twisted Tales</title>
 <style>
-  body { font-family: sans-serif; max-width: 40em; margin: 2em auto; padding: 0 1em; }
-  .card { border: 1px solid #333; border-radius: 8px; padding: 1em 1.5em; margin: 1em 0; }
-  .solution { background: #f3f3f3; }
-  nav a, nav span { margin-right: 1em; }
-  nav .disabled { color: #aaa; }
-  details.help { border: 1px solid #333; border-radius: 8px; padding: 0.5em 1.5em; margin: 1em 0; }
-  details.help summary { cursor: pointer; font-weight: bold; }
+  :root { --red: #c4141c; --red-dark: #7a0b10; --white: #f4f1ea; --muted: #8d8a85; --ink: #050505; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; min-height: 100vh; min-height: 100dvh;
+    background: radial-gradient(ellipse at top, #1a0507 0%, #000 60%) fixed #000;
+    color: var(--white);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.55;
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  }
+  main { max-width: 26rem; margin: 0 auto; }
+  a { color: inherit; }
+
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
+  h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.25em; text-transform: uppercase; }
+  h1 span { color: var(--red); }
+  .lang { font-family: system-ui, sans-serif; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase;
+          text-decoration: none; border: 1px solid var(--muted); padding: 0.4rem 0.7rem; min-height: 2.25rem; display: inline-flex; align-items: center; }
+
+  .card {
+    background: var(--ink); border: 3px solid var(--white); border-radius: 14px;
+    padding: 0.5rem; margin: 0 0 1.25rem;
+    box-shadow: 0 0 0 1px #000, 0 12px 30px rgba(196, 20, 28, 0.25);
+  }
+  .card-inner {
+    border: 1px solid var(--white); border-radius: 8px; padding: 1.5rem 1.25rem 1.75rem;
+    min-height: 55vh; min-height: 55dvh; position: relative; overflow: hidden;
+  }
+  .card-inner::before { /* blood drip along the top edge */
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: var(--red);
+  }
+  .card-inner::after {
+    content: ""; position: absolute; top: 6px; left: 12%; width: 10px; height: 26px; background: var(--red);
+    border-radius: 0 0 5px 5px;
+    box-shadow: 38vw 0 0 -1px var(--red);
+  }
+  .counter { font-family: system-ui, sans-serif; font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase;
+             color: var(--muted); margin: 1.5rem 0 0.5rem; }
+  h2 { margin: 0 0 1rem; font-size: 1.6rem; line-height: 1.2; color: var(--red); text-transform: uppercase; letter-spacing: 0.04em; }
+  .prompt { margin: 0; font-size: 1.15rem; }
+  .solution { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 2px solid var(--red); font-size: 1.05rem; }
+  .solution strong { display: block; color: var(--red); text-transform: uppercase; letter-spacing: 0.15em;
+                     font-family: system-ui, sans-serif; font-size: 0.8rem; margin-bottom: 0.4rem; }
+
+  nav { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-family: system-ui, sans-serif; }
+  nav a, nav span {
+    display: flex; align-items: center; justify-content: center; min-height: 3rem; padding: 0.5rem;
+    border: 1px solid var(--white); border-radius: 6px; text-decoration: none;
+    font-size: 0.95rem; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  nav a:active { background: var(--white); color: #000; }
+  nav .toggle { grid-column: 1 / -1; order: -1; background: var(--red); border-color: var(--red); font-weight: bold; }
+  nav .toggle:active { background: var(--red-dark); color: var(--white); }
+  nav .disabled { color: #4a4a4a; border-color: #333; }
+  a:focus-visible, summary:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+
+  details.help { margin-top: 1.5rem; border: 1px solid #444; border-radius: 6px; padding: 0 1rem; font-size: 0.95rem; }
+  details.help summary { cursor: pointer; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;
+                         font-size: 0.85rem; padding: 0.9rem 0; min-height: 3rem; }
+  details.help[open] summary { color: var(--red); }
+  details.help ol { padding-left: 1.25rem; }
+  details.help li { margin-bottom: 0.5rem; }
 </style>
 </head>
 <body>
-<h1>Twisted Tales</h1>
-<p>{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}} &middot; <a href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a></p>
-<div class="card">
-  <h2>{{.Card.Title}}</h2>
-  <p>{{.Card.Prompt}}</p>
-  {{if .Solution}}
-  <div class="solution"><strong>{{.L.Solution}}</strong> {{.Card.Solution}}</div>
-  {{end}}
-</div>
+<main>
+<header>
+  <h1>Twisted <span>Tales</span></h1>
+  <a class="lang" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>
+</header>
+<article class="card">
+  <div class="card-inner">
+    <p class="counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
+    <h2>{{.Card.Title}}</h2>
+    <p class="prompt">{{.Card.Prompt}}</p>
+    {{if .Solution}}
+    <div class="solution"><strong>{{.L.Solution}}</strong> {{.Card.Solution}}</div>
+    {{end}}
+  </div>
+</article>
 <nav>
+  {{if .Solution}}<a class="toggle" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
   {{if .Prev}}<a href="/cards/{{.Prev}}?lang={{.Lang}}">&larr; {{.L.Back}}</a>{{else}}<span class="disabled">&larr; {{.L.Back}}</span>{{end}}
-  {{if .Solution}}<a href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
   {{if .Next}}<a href="/cards/{{.Next}}?lang={{.Lang}}">{{.L.Next}} &rarr;</a>{{else}}<span class="disabled">{{.L.Next}} &rarr;</span>{{end}}
 </nav>
 <details class="help">
@@ -36,5 +99,6 @@
     {{range .L.HelpSteps}}<li>{{.}}</li>
     {{end}}</ol>
 </details>
+</main>
 </body>
 </html>
