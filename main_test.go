@@ -80,6 +80,9 @@ func TestAboutSection(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("%s: About section missing", path)
 		}
+		if !strings.Contains(body, `href="`+cardsSourceURL+`"`) {
+			t.Errorf("%s: cards source link missing", path)
+		}
 		if !strings.Contains(body, `href="`+repoURL+`"`) {
 			t.Errorf("%s: repo link missing", path)
 		}
