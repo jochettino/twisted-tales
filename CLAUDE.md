@@ -20,6 +20,7 @@ No external dependencies (stdlib only, Go 1.22+ for method/path-pattern routing)
 - `cards.go`: application logic (card loading, language handling, building the page data for a card).
 - `template.go`: templating (UI label and help strings per language, the `page` view model, rendering).
 - `templates/card.html`: the frontend (HTML and CSS), embedded into the binary.
+- `static.go` and `static/`: the favicon, the Apple and Android home-screen icons and `site.webmanifest`, embedded with `go:embed` and served from the site root (`/favicon.ico`, `/apple-touch-icon.png`, `/site.webmanifest`, ...). The red-moon artwork is the maintainer's own. To add or rename a file, update `staticFiles` in `static.go`, the `<link>` tags in the `<head>` of `templates/card.html`, and the manifest. The manifest has no maskable icons because the moon is not padded for a mask. Link previews use `og:image` with the absolute `siteURL` in `template.go`.
 - `*_test.go`: tests for card loading/navigation (`cards_test.go`) and HTTP routes (`main_test.go`). Route tests load the real cards in `resources/`.
 
 Behaviour that spans several files:
@@ -50,7 +51,7 @@ Keep these properties, which the current design relies on:
 - It sits behind Vercel's TLS-terminating proxy, so check `X-Forwarded-Proto` for https, not just `r.TLS` (see `setCookie`).
 - Anything the page needs must be served by the app itself or embedded in it. Be careful with long-running goroutines, background jobs and anything that assumes a long-lived process.
 
-If a change might affect the build or the runtime (new dependency, Go version bump in `go.mod`, new files outside the embedded folders, changed routes), say so up front. After pushing to `main`, check that the deployment still works (the Vercel badge in the README, or the live URL).
+If a change might affect the build or the runtime (new dependency, Go version bump in `go.mod`, new files outside the embedded folders (`resources/`, `templates/`, `static/`), changed routes), say so up front. After pushing to `main`, check that the deployment still works (the Vercel badge in the README, or the live URL).
 
 ## Working in parallel
 

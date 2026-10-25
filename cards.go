@@ -131,6 +131,7 @@ func newPage(cards map[string][]Card, lang string, n int, solution bool) (page, 
 		L:        ui[lang],
 		RepoURL:  repoURL,
 		CardsURL: cardsSourceURL,
+		SiteURL:  siteURL,
 	}
 	if n > 1 {
 		p.Prev = n - 1

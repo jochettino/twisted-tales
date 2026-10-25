@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"html"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -201,6 +203,88 @@ func TestAPINotFoundIsJSON(t *testing.T) {
 func TestAPISavesLanguageAndCard(t *testing.T) {
 	if got := setCookies(get(t, "/api/cards/3?lang=ES")); got["lang"] != "ES" || got["card"] != "3" {
 		t.Errorf("API cookies = %v, want lang=ES card=3", got)
+	}
+}
+
+func TestStaticIcons(t *testing.T) {
+	sizes := map[string]int{
+		"/favicon-32x32.png": 32, "/apple-touch-icon.png": 180,
+		"/android-chrome-192x192.png": 192, "/android-chrome-512x512.png": 512,
+	}
+	for path, want := range sizes {
+		rec := get(t, path)
+		if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/png" {
+			t.Errorf("%s = %d %q, want 200 image/png", path, rec.Code, rec.Header().Get("Content-Type"))
+			continue
+		}
+		img, err := png.Decode(bytes.NewReader(rec.Body.Bytes()))
+		if err != nil || img.Bounds().Dx() != want || img.Bounds().Dy() != want {
+			t.Errorf("%s: want a %dx%d PNG (err %v)", path, want, want, err)
+		}
+		if rec.Header().Get("Cache-Control") == "" {
+			t.Errorf("%s has no Cache-Control", path)
+		}
+	}
+	ico := get(t, "/favicon.ico")
+	// An ICO starts with reserved=0, type=1 (icon).
+	if ico.Code != http.StatusOK || !bytes.HasPrefix(ico.Body.Bytes(), []byte{0, 0, 1, 0}) {
+		t.Errorf("/favicon.ico = %d, want a 200 ICO file", ico.Code)
+	}
+}
+
+func TestWebManifest(t *testing.T) {
+	rec := get(t, "/site.webmanifest")
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/manifest+json" {
+		t.Fatalf("manifest = %d %q", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	var m struct {
+		ShortName  string `json:"short_name"`
+		StartURL   string `json:"start_url"`
+		Theme      string `json:"theme_color"`
+		Background string `json:"background_color"`
+		Icons      []struct {
+			Src, Sizes, Purpose string
+		} `json:"icons"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.ShortName != "Twisted Tales" || m.StartURL != "/" || m.Theme != "#000000" || m.Background != "#000000" {
+		t.Errorf("manifest = %+v", m)
+	}
+	if len(m.Icons) == 0 {
+		t.Fatal("manifest has no icons")
+	}
+	for _, ic := range m.Icons {
+		if ic.Purpose == "maskable" {
+			t.Errorf("%s is marked maskable, but the moon is not padded for a mask", ic.Src)
+		}
+		if get(t, ic.Src).Code != http.StatusOK {
+			t.Errorf("manifest icon %s is not served", ic.Src)
+		}
+	}
+}
+
+func TestPageHeadLinksIconsAndPreview(t *testing.T) {
+	for path, tagline := range map[string]string{"/cards/1": "lateral-thinking", "/cards/1?lang=ES": "pensamiento lateral"} {
+		body := get(t, path).Body.String()
+		for _, want := range []string{
+			`<link rel="icon" href="/favicon.ico" sizes="any">`,
+			`<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">`,
+			`<link rel="apple-touch-icon" href="/apple-touch-icon.png">`,
+			`<link rel="manifest" href="/site.webmanifest">`,
+			`<meta property="og:image" content="` + siteURL + `/android-chrome-512x512.png">`,
+			tagline,
+		} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s: head is missing %q", path, want)
+			}
+		}
+	}
+	// A link preview must not leak anything about the card.
+	cards, _ := loadCards()
+	if body := get(t, "/cards/1").Body.String(); strings.Contains(body, `og:title" content="`+html.EscapeString(cards["EN"][0].Title)) {
+		t.Error("og:title should be the site name, not the card title")
 	}
 }
 
