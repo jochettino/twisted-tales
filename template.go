@@ -16,8 +16,13 @@ type labels struct {
 	Help, HelpIntro                                      string
 	HelpSteps                                            []string
 	About, AboutCode, AboutRepo, AboutCards              string
+	Tagline                                              string
 	AboutPoints                                          []string
 }
+
+// siteURL is the public address of the deployed app. Link previews
+// (og:image) need absolute URLs.
+const siteURL = "https://twisted-tales-game.vercel.app"
 
 // repoURL and cardsSourceURL are linked from the About section.
 const (
@@ -48,6 +53,7 @@ var ui = map[string]labels{
 		AboutCode:  "If you want to see the source code, you can visit my",
 		AboutRepo:  "GitHub repo",
 		AboutCards: "Many of the cards come from",
+		Tagline:    "A lateral-thinking mystery card game. Work out what really happened by asking yes/no questions.",
 	},
 	"ES": {
 		Card: "Carta", Of: "de", Back: "Atrás", Next: "Siguiente",
@@ -71,6 +77,7 @@ var ui = map[string]labels{
 		AboutCode:  "Si quieres ver el código fuente, puedes visitar mi",
 		AboutRepo:  "repositorio de GitHub",
 		AboutCards: "Muchas de las cartas proceden de",
+		Tagline:    "Un juego de cartas de misterio y pensamiento lateral. Descubre qué ocurrió de verdad haciendo preguntas de sí o no.",
 	},
 }
 
@@ -87,6 +94,7 @@ type page struct {
 	Next     int // 0 when there is no next card
 	RepoURL  string
 	CardsURL string
+	SiteURL  string
 }
 
 func renderPage(w io.Writer, p page) error {

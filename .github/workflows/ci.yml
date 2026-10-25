@@ -8,6 +8,7 @@ on:
       - 'go.mod'
       - 'resources/**.json'
       - 'templates/**'
+      - 'static/**'
       - '.github/workflows/ci.yml'
 
 jobs:

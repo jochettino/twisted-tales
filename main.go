@@ -60,6 +60,7 @@ func cookieValue(r *http.Request, name string) string {
 
 func newMux(cards map[string][]Card) *http.ServeMux {
 	mux := http.NewServeMux()
+	registerStatic(mux)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		// Resume at the saved card, if it still exists.
 		lang := resolveLang("", cookieValue(r, langCookie))
