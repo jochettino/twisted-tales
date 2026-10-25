@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -69,23 +70,49 @@ func newMux(cards map[string][]Card) *http.ServeMux {
 		http.Redirect(w, r, "/cards/"+strconv.Itoa(n), http.StatusFound)
 	})
 	mux.HandleFunc("GET /cards/{n}", func(w http.ResponseWriter, r *http.Request) {
-		n, err := strconv.Atoi(r.PathValue("n"))
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		q := r.URL.Query()
-		lang := resolveLang(q.Get("lang"), cookieValue(r, langCookie))
-		p, ok := newPage(cards, lang, n, q.Get("solution") == "1")
+		p, ok := cardForRequest(cards, w, r)
 		if !ok {
 			http.NotFound(w, r)
 			return
 		}
-		setCookie(w, r, langCookie, lang)
-		setCookie(w, r, cardCookie, strconv.Itoa(n))
-		if err := renderPage(w, p, q.Get("partial") == "1"); err != nil {
+		if err := renderPage(w, p); err != nil {
 			log.Print(err)
 		}
 	})
+	// The same card as JSON, for the in-page script (see templates/card.html).
+	mux.HandleFunc("GET /api/cards/{n}", func(w http.ResponseWriter, r *http.Request) {
+		p, ok := cardForRequest(cards, w, r)
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "card not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, p.data())
+	})
 	return mux
+}
+
+// cardForRequest resolves the card a request asks for (the {n} path value,
+// ?lang= and ?solution=1) and, if it exists, remembers it in the cookies.
+func cardForRequest(cards map[string][]Card, w http.ResponseWriter, r *http.Request) (page, bool) {
+	n, err := strconv.Atoi(r.PathValue("n"))
+	if err != nil {
+		return page{}, false
+	}
+	q := r.URL.Query()
+	lang := resolveLang(q.Get("lang"), cookieValue(r, langCookie))
+	p, ok := newPage(cards, lang, n, q.Get("solution") == "1")
+	if !ok {
+		return page{}, false
+	}
+	setCookie(w, r, langCookie, lang)
+	setCookie(w, r, cardCookie, strconv.Itoa(n))
+	return p, true
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Print(err)
+	}
 }

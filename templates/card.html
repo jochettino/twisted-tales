@@ -52,7 +52,7 @@
                      font-family: system-ui, sans-serif; font-size: 0.8rem; margin-bottom: 0.4rem; }
 
   nav { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-family: system-ui, sans-serif; }
-  nav a, nav span {
+  nav a {
     display: flex; align-items: center; justify-content: center; min-height: 3rem; padding: 0.5rem;
     border: 1px solid var(--white); border-radius: 6px; text-decoration: none;
     font-size: 0.95rem; letter-spacing: 0.05em; text-transform: uppercase;
@@ -60,7 +60,8 @@
   nav a:active { background: var(--white); color: #000; }
   nav .toggle { grid-column: 1 / -1; order: -1; background: var(--red); border-color: var(--red); font-weight: bold; }
   nav .toggle:active { background: var(--red-dark); color: var(--white); }
-  nav .disabled { color: #4a4a4a; border-color: #333; }
+  nav a.disabled { color: #4a4a4a; border-color: #333; pointer-events: none; }
+  [hidden] { display: none !important; }
   a:focus-visible, summary:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
 
   details.help + details.help { margin-top: 0.75rem; }
@@ -73,13 +74,24 @@
 </style>
 </head>
 <body>
-<main>
+<main id="app" data-lang="{{.Lang}}" data-other="{{.Other}}" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}">
 <header>
   <h1>Twisted <span>Tales</span></h1>
-  {{template "lang-link" .}}
+  <a class="lang" id="lang-link" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>
 </header>
-{{template "card-view" .}}
-{{template "nav-buttons" .}}
+<article class="card" aria-live="polite">
+  <div class="card-inner">
+    <p class="counter" id="card-counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
+    <h2 id="card-title">{{.Card.Title}}</h2>
+    <p class="prompt" id="card-prompt">{{.Card.Prompt}}</p>
+    <div class="solution" id="card-solution"{{if not .Solution}} hidden{{end}}><strong>{{.L.Solution}}</strong> <span id="card-solution-text">{{if .Solution}}{{.Card.Solution}}{{end}}</span></div>
+  </div>
+</article>
+<nav>
+  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
+  <a id="nav-prev" data-nav="card"{{if .Prev}} href="/cards/{{.Prev}}?lang={{.Lang}}"{{else}} class="disabled" aria-disabled="true"{{end}}>&larr; {{.L.Back}}</a>
+  <a id="nav-next" data-nav="card"{{if .Next}} href="/cards/{{.Next}}?lang={{.Lang}}"{{else}} class="disabled" aria-disabled="true"{{end}}>{{.L.Next}} &rarr;</a>
+</nav>
 <details class="help">
   <summary>{{.L.Help}}</summary>
   <p>{{.L.HelpIntro}}</p>
@@ -97,38 +109,71 @@
 </details>
 </main>
 <script>
-// Progressive enhancement: Back, Next and Show/Hide solution swap only the
-// card, the buttons and the language link instead of reloading the page.
-// Without JavaScript (or if anything fails) the links work as normal links.
+// Progressive enhancement: Back, Next and Show/Hide solution fetch the card as
+// JSON from /api/cards/{n} and fill it into the existing elements, instead of
+// reloading the page. The page is fully server-rendered, so without
+// JavaScript (or if anything fails) the links work as normal links.
 (function () {
+  var app = document.getElementById('app');
+  var lang = app.dataset.lang;
+  var other = app.dataset.other;
   var latest = 0;
 
-  function swap(doc) {
-    document.querySelectorAll('[data-swap]').forEach(function (old) {
-      var fresh = doc.querySelector('[data-swap="' + old.getAttribute('data-swap') + '"]');
-      if (fresh) old.replaceWith(document.importNode(fresh, true));
-    });
+  function $(id) { return document.getElementById(id); }
+
+  // The page address for a card; the same scheme the server renders in its links.
+  function pageURL(n, solution, l) {
+    return '/cards/' + n + '?lang=' + l + (solution ? '&solution=1' : '');
   }
 
-  // mode: "push" (new history entry), "replace" or "none" (back/forward).
-  async function load(url, mode) {
+  function setLink(a, n) {
+    if (n) {
+      a.setAttribute('href', pageURL(n, false, lang));
+      a.classList.remove('disabled');
+      a.removeAttribute('aria-disabled');
+    } else {
+      a.removeAttribute('href');
+      a.classList.add('disabled');
+      a.setAttribute('aria-disabled', 'true');
+    }
+  }
+
+  // Fill the card data into the page. Only textContent is used, never HTML.
+  function render(card) {
+    var shown = card.solution !== undefined;
+    $('card-counter').textContent = app.dataset.card + ' ' + card.number + ' ' + app.dataset.of + ' ' + card.total;
+    $('card-title').textContent = card.title;
+    $('card-prompt').textContent = card.prompt;
+    $('card-solution-text').textContent = shown ? card.solution : '';
+    $('card-solution').hidden = !shown;
+    var toggle = $('nav-solution');
+    toggle.textContent = shown ? app.dataset.hide : app.dataset.show;
+    toggle.setAttribute('href', pageURL(card.number, !shown, lang));
+    setLink($('nav-prev'), card.prev);
+    setLink($('nav-next'), card.next);
+    $('lang-link').setAttribute('href', pageURL(card.number, false, other));
+  }
+
+  // pageHref is a page address such as /cards/3?lang=EN&solution=1; the API
+  // takes the same path and query under /api. mode: "push" (new history
+  // entry), "replace" or "none" (back/forward).
+  async function load(pageHref, mode) {
     var id = ++latest;
     var focused = document.activeElement && document.activeElement.id;
     try {
-      var partial = new URL(url, location.href);
-      partial.searchParams.set('partial', '1');
-      var res = await fetch(partial, { credentials: 'same-origin' });
+      var u = new URL(pageHref, location.href);
+      var res = await fetch('/api' + u.pathname + u.search, { credentials: 'same-origin' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      var doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      var card = await res.json();
       if (id !== latest) return; // a newer click superseded this one
-      swap(doc);
-      if (mode === 'push') history.pushState(null, '', url);
-      if (mode === 'replace') history.replaceState(null, '', url);
+      render(card);
+      if (mode === 'push') history.pushState(null, '', pageHref);
+      if (mode === 'replace') history.replaceState(null, '', pageHref);
       if (mode === 'push') window.scrollTo(0, 0);
-      var el = focused && document.getElementById(focused);
-      if (el && el.tagName === 'A') el.focus();
+      var el = focused && $(focused);
+      if (el && el.hasAttribute('href')) el.focus();
     } catch (err) {
-      if (id === latest) location.href = url;
+      if (id === latest) location.href = pageHref;
     }
   }
 
@@ -137,6 +182,7 @@
     var a = e.target.closest('a[data-nav]');
     if (!a) return;
     e.preventDefault();
+    if (!a.hasAttribute('href')) return; // disabled Back/Next
     load(a.href, a.getAttribute('data-nav') === 'card' ? 'push' : 'replace');
   });
 
@@ -145,23 +191,3 @@
 </script>
 </body>
 </html>
-
-{{define "lang-link"}}<a class="lang" data-swap="lang" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>{{end}}
-{{define "card-view"}}<article class="card" data-swap="card" aria-live="polite">
-  <div class="card-inner">
-    <p class="counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
-    <h2>{{.Card.Title}}</h2>
-    <p class="prompt">{{.Card.Prompt}}</p>
-    {{if .Solution}}
-    <div class="solution"><strong>{{.L.Solution}}</strong> {{.Card.Solution}}</div>
-    {{end}}
-  </div>
-</article>{{end}}
-{{define "nav-buttons"}}<nav data-swap="nav">
-  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
-  {{if .Prev}}<a id="nav-prev" data-nav="card" href="/cards/{{.Prev}}?lang={{.Lang}}">&larr; {{.L.Back}}</a>{{else}}<span class="disabled">&larr; {{.L.Back}}</span>{{end}}
-  {{if .Next}}<a id="nav-next" data-nav="card" href="/cards/{{.Next}}?lang={{.Lang}}">{{.L.Next}} &rarr;</a>{{else}}<span class="disabled">{{.L.Next}} &rarr;</span>{{end}}
-</nav>{{end}}
-{{define "partial"}}{{template "lang-link" .}}
-{{template "card-view" .}}
-{{template "nav-buttons" .}}{{end}}
