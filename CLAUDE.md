@@ -47,6 +47,19 @@ Keep these properties, which the current design relies on:
 
 If a change might affect the build or the runtime (new dependency, Go version bump in `go.mod`, new files outside the embedded folders, changed routes), say so up front. After pushing to `main`, check that the deployment still works (the Vercel badge in the README, or the live URL).
 
+## Working in parallel
+
+Several agents may work on this repo at the same time, so follow this to avoid collisions:
+
+- Never edit in the shared checkout. Do all work in your own git worktree on its own branch (e.g. `EnterWorktree`), branched from `origin/main`. Local `main` may hold unpushed commits; don't assume it matches `origin/main`.
+- Never commit or push to `main`, force-push, or merge. Push your branch and open a draft PR; the user reviews and merges. A push to `main` deploys to production (see Deployment), so only the user does that.
+- Stay in your assigned scope. Shared files (`CLAUDE.md`, `templates/card.html`, `template.go`, `cards.go`) are conflict hotspots: touch them only if the task needs it, and keep edits small and targeted. If the task seems to need a file outside your scope, say so instead of editing it.
+- Card numbers: the numeric filename prefix defines the order, so two agents adding cards will pick the same next number. Use only the number range you were assigned. If none was given, ask before adding cards. Every card needs both an EN and an ES file.
+- Ports: never assume 8080 is free. When running the server, pick a distinct `PORT` (e.g. `PORT=18080 go run .`) and stop the server when done.
+- Don't use bare `git stash` (the stash is shared across worktrees); commit work in progress instead. Keep temporary files out of the repo.
+- Before opening a PR, run `go test ./...`, `go vet ./...` and `gofmt -l .`, and rebase on the latest `origin/main`. In the PR description, say if the change affects the build or runtime (see Deployment).
+- Branches merge one at a time. If your PR conflicts after another merged, rebase and resolve; don't overwrite the other change.
+
 ## Git
 
 Commits are authored as `jochettino` with a GitHub noreply email (set in the global git config). Don't substitute a personal email.
