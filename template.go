@@ -89,11 +89,6 @@ type page struct {
 	CardsURL string
 }
 
-// renderPage writes the full page, or with partial only the parts the
-// in-page script swaps (language link, card and nav buttons).
-func renderPage(w io.Writer, p page, partial bool) error {
-	if partial {
-		return pageTmpl.ExecuteTemplate(w, "partial", p)
-	}
+func renderPage(w io.Writer, p page) error {
 	return pageTmpl.Execute(w, p)
 }

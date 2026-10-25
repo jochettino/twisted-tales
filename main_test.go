@@ -2,8 +2,11 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
+	"html"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -41,13 +44,21 @@ func TestRoutes(t *testing.T) {
 
 func TestSolutionHiddenByDefault(t *testing.T) {
 	cards, _ := loadCards()
-	solution := cards["EN"][0].Solution
+	solution := html.EscapeString(cards["EN"][0].Solution)
 
-	if body := get(t, "/cards/1").Body.String(); strings.Contains(body, "Solution:") || strings.Contains(body, solution) {
-		t.Error("solution is visible without ?solution=1")
+	body := get(t, "/cards/1").Body.String()
+	if strings.Contains(body, solution) {
+		t.Error("solution text is in the page without ?solution=1")
 	}
-	if body := get(t, "/cards/1?solution=1").Body.String(); !strings.Contains(body, "Solution:") {
-		t.Error("solution is not visible with ?solution=1")
+	if !strings.Contains(body, `id="card-solution" hidden`) {
+		t.Error("solution block should be hidden without ?solution=1")
+	}
+	body = get(t, "/cards/1?solution=1").Body.String()
+	if !strings.Contains(body, solution) {
+		t.Error("solution is not in the page with ?solution=1")
+	}
+	if strings.Contains(body, `id="card-solution" hidden`) {
+		t.Error("solution block should be visible with ?solution=1")
 	}
 }
 
@@ -89,55 +100,107 @@ func TestAboutSection(t *testing.T) {
 	}
 }
 
-func TestPartialUpdateHooks(t *testing.T) {
+func TestPageHooksForScript(t *testing.T) {
 	body := get(t, "/cards/2").Body.String()
 	for _, want := range []string{
-		`data-swap="lang"`, `data-swap="card"`, `data-swap="nav"`,
+		`data-lang="EN" data-other="ES"`, `data-card="Card" data-of="of"`, `data-show="Show solution" data-hide="Hide solution"`,
+		`id="lang-link"`, `id="card-counter"`, `id="card-title"`, `id="card-prompt"`, `id="card-solution-text"`,
 		`id="nav-solution" data-nav="solution" href="/cards/2?lang=EN&solution=1"`,
 		`id="nav-prev" data-nav="card" href="/cards/1?lang=EN"`,
 		`id="nav-next" data-nav="card" href="/cards/3?lang=EN"`,
-		"async function load(", // the enhancement script survived templating
+		"fetch('/api' + u.pathname + u.search", // the script survived templating
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page is missing %q", want)
 		}
 	}
-	// The first card has nothing before it: Back is a disabled span, not a link.
-	if first := get(t, "/cards/1").Body.String(); strings.Contains(first, `id="nav-prev"`) {
-		t.Error("Back should not be a link on the first card")
+	// At the ends Back/Next stay in the page (the script re-enables them) but have no link.
+	if first := get(t, "/cards/1").Body.String(); !strings.Contains(first, `id="nav-prev" data-nav="card" class="disabled"`) {
+		t.Error("Back should be disabled, without href, on the first card")
 	}
 }
 
-func TestPartialResponse(t *testing.T) {
-	full := get(t, "/cards/2?lang=ES")
-	part := get(t, "/cards/2?lang=ES&partial=1")
-	if part.Code != http.StatusOK {
-		t.Fatalf("partial = %d, want 200", part.Code)
-	}
-	body := part.Body.String()
-	for _, want := range []string{`data-swap="lang"`, `data-swap="card"`, `data-swap="nav"`, "Carta 2 de"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("partial is missing %q", want)
+type apiCard struct {
+	Number   int    `json:"number"`
+	Total    int    `json:"total"`
+	Title    string `json:"title"`
+	Prompt   string `json:"prompt"`
+	Solution string `json:"solution"`
+	Prev     *int   `json:"prev"`
+	Next     *int   `json:"next"`
+}
+
+func getAPI(t *testing.T, path string) (apiCard, *httptest.ResponseRecorder) {
+	t.Helper()
+	rec := get(t, path)
+	var c apiCard
+	if rec.Code == http.StatusOK {
+		if err := json.Unmarshal(rec.Body.Bytes(), &c); err != nil {
+			t.Fatalf("%s: %v\n%s", path, err, rec.Body)
 		}
 	}
-	for _, unwanted := range []string{"<html", "<style", "<script", "<details", "<h1>"} {
-		if strings.Contains(body, unwanted) {
-			t.Errorf("partial should not contain %q", unwanted)
+	return c, rec
+}
+
+func TestAPICard(t *testing.T) {
+	cards, _ := loadCards()
+	c, rec := getAPI(t, "/api/cards/2")
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+	want := cards["EN"][1]
+	if c.Number != 2 || c.Total != len(cards["EN"]) || c.Title != want.Title || c.Prompt != want.Prompt {
+		t.Errorf("card = %+v, want number 2 of %d, %q", c, len(cards["EN"]), want.Title)
+	}
+	if c.Prev == nil || *c.Prev != 1 || c.Next == nil || *c.Next != 3 {
+		t.Errorf("prev/next = %v/%v, want 1/3", c.Prev, c.Next)
+	}
+	// No markup in the response.
+	if body := rec.Body.String(); strings.Contains(body, "<") && !strings.Contains(body, `\u003c`) {
+		t.Errorf("response contains HTML: %s", body)
+	}
+}
+
+func TestAPISolutionOnlyWhenAsked(t *testing.T) {
+	cards, _ := loadCards()
+	if c, rec := getAPI(t, "/api/cards/1"); c.Solution != "" || strings.Contains(rec.Body.String(), `"solution"`) {
+		t.Errorf("solution sent without solution=1: %s", rec.Body)
+	}
+	if c, _ := getAPI(t, "/api/cards/1?solution=1"); c.Solution != cards["EN"][0].Solution {
+		t.Errorf("solution = %q, want %q", c.Solution, cards["EN"][0].Solution)
+	}
+}
+
+func TestAPILanguageAndEnds(t *testing.T) {
+	cards, _ := loadCards()
+	if c, _ := getAPI(t, "/api/cards/2?lang=ES"); c.Title != cards["ES"][1].Title {
+		t.Errorf("ES title = %q, want %q", c.Title, cards["ES"][1].Title)
+	}
+	first, rec := getAPI(t, "/api/cards/1")
+	if first.Prev != nil || !strings.Contains(rec.Body.String(), `"prev":null`) {
+		t.Errorf("first card prev should be null: %s", rec.Body)
+	}
+	last, rec := getAPI(t, "/api/cards/"+strconv.Itoa(len(cards["EN"])))
+	if last.Next != nil || !strings.Contains(rec.Body.String(), `"next":null`) {
+		t.Errorf("last card next should be null: %s", rec.Body)
+	}
+}
+
+func TestAPINotFoundIsJSON(t *testing.T) {
+	for _, path := range []string{"/api/cards/0", "/api/cards/99", "/api/cards/x"} {
+		rec := get(t, path)
+		if rec.Code != http.StatusNotFound || !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {
+			t.Errorf("%s = %d %q, want a JSON 404", path, rec.Code, rec.Header().Get("Content-Type"))
+		}
+		if len(rec.Result().Cookies()) != 0 {
+			t.Errorf("%s should not set cookies", path)
 		}
 	}
-	if part.Body.Len() >= full.Body.Len()/2 {
-		t.Errorf("partial is %d bytes, full page %d: expected well under half", part.Body.Len(), full.Body.Len())
-	}
-	// Same state handling as the full page: cookies are saved, bad cards 404.
-	if got := setCookies(part); got["lang"] != "ES" || got["card"] != "2" {
-		t.Errorf("partial cookies = %v, want lang=ES card=2", got)
-	}
-	if rec := get(t, "/cards/99?partial=1"); rec.Code != http.StatusNotFound {
-		t.Errorf("partial of missing card = %d, want 404", rec.Code)
-	}
-	// Solution reveal works in the partial too.
-	if sol := get(t, "/cards/2?solution=1&partial=1").Body.String(); !strings.Contains(sol, `class="solution"`) {
-		t.Error("partial with solution=1 should show the solution")
+}
+
+func TestAPISavesLanguageAndCard(t *testing.T) {
+	if got := setCookies(get(t, "/api/cards/3?lang=ES")); got["lang"] != "ES" || got["card"] != "3" {
+		t.Errorf("API cookies = %v, want lang=ES card=3", got)
 	}
 }
 

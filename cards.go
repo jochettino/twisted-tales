@@ -83,6 +83,33 @@ func loadCardsFrom(fsys fs.ReadDirFS, dir string) (map[string][]Card, error) {
 	return cards, nil
 }
 
+// cardData is the JSON served by /api/cards/{n}: just the data of a card and
+// its neighbours, with no markup and no UI texts (the page already carries
+// those, and they only change with a full reload when the language changes).
+type cardData struct {
+	Number   int    `json:"number"`
+	Total    int    `json:"total"`
+	Title    string `json:"title"`
+	Prompt   string `json:"prompt"`
+	Solution string `json:"solution,omitempty"` // only when the solution was requested
+	Prev     *int   `json:"prev"`               // null when there is no previous card
+	Next     *int   `json:"next"`               // null when there is no next card
+}
+
+func (p page) data() cardData {
+	d := cardData{Number: p.Number, Total: p.Total, Title: p.Card.Title, Prompt: p.Card.Prompt}
+	if p.Solution {
+		d.Solution = p.Card.Solution
+	}
+	if p.Prev != 0 {
+		d.Prev = &p.Prev
+	}
+	if p.Next != 0 {
+		d.Next = &p.Next
+	}
+	return d
+}
+
 // newPage builds the page for card n (1-based) in the given language.
 // It reports false when n is out of range.
 func newPage(cards map[string][]Card, lang string, n int, solution bool) (page, bool) {
