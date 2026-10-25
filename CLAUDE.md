@@ -31,6 +31,11 @@ Behaviour that spans several files:
 - User state lives in the browser, never on the server: viewing a card sets two cookies, `lang` and `card` (1 year, `HttpOnly`, `SameSite=Lax`, and `Secure` only when the request is https, directly or via `X-Forwarded-Proto` as on Vercel, so plain-http localhost still works; see `setCookie` in `main.go`). `/` redirects to the saved card (falling back to 1 if it is missing or out of range). Language precedence is explicit `?lang=` > `lang` cookie > default (`resolveLang` in `cards.go`). The solution toggle is deliberately not saved.
 - Back/Next do not wrap around; they are disabled at the first and last card.
 
+## UI principles
+
+- **Mobile first.** Nearly every player uses the app on a phone, in the phone's browser, so design and test for a narrow touch screen first; desktop only has to not break. Keep the single narrow column, tap targets of at least 3rem, no hover-only interactions and no horizontal scrolling, and respect the safe-area insets. Check layout changes at roughly 360–400 px width.
+- **Look and feel.** The look imitates a physical Black Stories card: a black background, white borders and text, and red only as an accent (the title, the drips, the solution divider, the main button). Keep the card as a bordered rectangle that reads like a real card.
+
 ## Deployment (Vercel)
 
 This application is meant to be deployed on Vercel, so every change must stay compatible with Vercel deployments. Do not make changes that could break the deployment.
