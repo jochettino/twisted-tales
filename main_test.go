@@ -288,6 +288,26 @@ func TestPageHeadLinksIconsAndPreview(t *testing.T) {
 	}
 }
 
+func TestShareButton(t *testing.T) {
+	for _, tc := range []struct{ path, lang, line, button, copied string }{
+		{"/cards/7", "EN", "Share it with friends.", "Share the game", "Link copied!"},
+		{"/cards/7?lang=ES", "ES", "Compártelo con tus amigos.", "Compartir el juego", "¡Enlace copiado!"},
+	} {
+		body := get(t, tc.path).Body.String()
+		for _, want := range []string{
+			tc.line,
+			`<button type="button" class="share" id="share-button" hidden>` + tc.button + `</button>`, // hidden until the script finds a way to share
+			`data-share-url="` + siteURL + `/cards/1?lang=` + tc.lang + `"`,                           // the game's front door in the sharer's language, not the current card
+			`data-copied="` + html.EscapeString(tc.copied) + `"`,
+			"navigator.share(shareData)",
+		} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s: page is missing %q", tc.path, want)
+			}
+		}
+	}
+}
+
 func cookie(name, value string) *http.Cookie { return &http.Cookie{Name: name, Value: value} }
 
 func setCookies(rec *httptest.ResponseRecorder) map[string]string {

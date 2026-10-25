@@ -17,6 +17,7 @@ type labels struct {
 	HelpSteps                                            []string
 	About, AboutCode, AboutRepo, AboutCards              string
 	Tagline                                              string
+	AboutShare, ShareButton, ShareCopied, ShareText      string
 	AboutPoints                                          []string
 }
 
@@ -47,12 +48,15 @@ var ui = map[string]labels{
 		About: "About",
 		AboutPoints: []string{
 			"This is a personal project.",
-			"Share it with friends.",
 		},
-		AboutCode:  "If you want to see the source code, you can visit my",
-		AboutRepo:  "GitHub repo",
-		AboutCards: "Many of the cards come from",
-		Tagline:    "A lateral-thinking mystery card game. Work out what really happened by asking yes/no questions.",
+		AboutShare:  "Share it with friends.",
+		ShareButton: "Share the game",
+		ShareCopied: "Link copied!",
+		ShareText:   "Twisted Tales: a lateral-thinking mystery card game. Come play!",
+		AboutCode:   "If you want to see the source code, you can visit my",
+		AboutRepo:   "GitHub repo",
+		AboutCards:  "Many of the cards come from",
+		Tagline:     "A lateral-thinking mystery card game. Work out what really happened by asking yes/no questions.",
 	},
 	"ES": {
 		Card: "Carta", Of: "de", Back: "Atrás", Next: "Siguiente",
@@ -70,12 +74,15 @@ var ui = map[string]labels{
 		About: "Acerca de",
 		AboutPoints: []string{
 			"Este es un proyecto personal.",
-			"Compártelo con tus amigos.",
 		},
-		AboutCode:  "Si quieres ver el código fuente, puedes visitar mi",
-		AboutRepo:  "repositorio de GitHub",
-		AboutCards: "Muchas de las cartas proceden de",
-		Tagline:    "Un juego de cartas de misterio y pensamiento lateral. Descubre qué ocurrió de verdad haciendo preguntas de sí o no.",
+		AboutShare:  "Compártelo con tus amigos.",
+		ShareButton: "Compartir el juego",
+		ShareCopied: "¡Enlace copiado!",
+		ShareText:   "Twisted Tales: un juego de cartas de misterio y pensamiento lateral. ¡Ven a jugar!",
+		AboutCode:   "Si quieres ver el código fuente, puedes visitar mi",
+		AboutRepo:   "repositorio de GitHub",
+		AboutCards:  "Muchas de las cartas proceden de",
+		Tagline:     "Un juego de cartas de misterio y pensamiento lateral. Descubre qué ocurrió de verdad haciendo preguntas de sí o no.",
 	},
 }
 

@@ -84,10 +84,15 @@
   details.help[open] summary { color: var(--red); }
   details.help ol, details.help ul { padding-left: 1.25rem; }
   details.help li { margin-bottom: 0.5rem; }
+  .share { font: inherit; font-family: system-ui, sans-serif; font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;
+           color: var(--white); background: var(--red); border: 1px solid var(--red); border-radius: 6px;
+           min-height: 3rem; padding: 0.5rem 1rem; margin-top: 0.5rem; cursor: pointer; }
+  .share:active { background: var(--red-dark); }
+  .share:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 </style>
 </head>
 <body>
-<main id="app" data-lang="{{.Lang}}" data-other="{{.Other}}" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}">
+<main id="app" data-lang="{{.Lang}}" data-other="{{.Other}}" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}" data-share-url="{{.SiteURL}}/cards/1?lang={{.Lang}}" data-share-text="{{.L.ShareText}}" data-copied="{{.L.ShareCopied}}">
 <header>
   <h1>Twisted <span>Tales</span></h1>
   <a class="lang" id="lang-link" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>
@@ -116,7 +121,8 @@
   <summary>{{.L.About}}</summary>
   <ul>
     {{range .L.AboutPoints}}<li>{{.}}</li>
-    {{end}}<li>{{.L.AboutCards}} <a href="{{.CardsURL}}" target="_blank" rel="noopener">yesnogame.net</a>.</li>
+    {{end}}<li>{{.L.AboutShare}}<br><button type="button" class="share" id="share-button" hidden>{{.L.ShareButton}}</button></li>
+    <li>{{.L.AboutCards}} <a href="{{.CardsURL}}" target="_blank" rel="noopener">yesnogame.net</a>.</li>
     <li>{{.L.AboutCode}} <a href="{{.RepoURL}}" target="_blank" rel="noopener">{{.L.AboutRepo}}</a>.</li>
   </ul>
 </details>
@@ -200,6 +206,33 @@
   });
 
   window.addEventListener('popstate', function () { load(location.href, 'none'); });
+
+  // Share button (About section). An installed app runs full screen with no
+  // browser share menu, so offer one: the native share sheet where there is
+  // one, otherwise copy the link. The button stays hidden if neither exists.
+  var share = $('share-button');
+  if (share && (navigator.share || (navigator.clipboard && navigator.clipboard.writeText))) {
+    share.hidden = false;
+    var shareLabel = share.textContent;
+    var shareData = { title: 'Twisted Tales', text: app.dataset.shareText, url: app.dataset.shareUrl };
+
+    var copyLink = async function () {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        share.textContent = app.dataset.copied;
+        setTimeout(function () { share.textContent = shareLabel; }, 2000);
+      } catch (err) { /* nothing more to try */ }
+    };
+
+    share.addEventListener('click', async function () {
+      if (navigator.share) {
+        try { await navigator.share(shareData); }
+        catch (err) { if (err.name !== 'AbortError' && navigator.clipboard) copyLink(); } // AbortError: the user closed the sheet
+      } else {
+        copyLink();
+      }
+    });
+  }
 })();
 </script>
 </body>
