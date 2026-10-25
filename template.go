@@ -47,7 +47,6 @@ var ui = map[string]labels{
 		About: "About",
 		AboutPoints: []string{
 			"This is a personal project.",
-			"This app is an experiment, made for testing purposes only. It is not a production-ready app.",
 			"Share it with friends.",
 		},
 		AboutCode:  "If you want to see the source code, you can visit my",
@@ -71,7 +70,6 @@ var ui = map[string]labels{
 		About: "Acerca de",
 		AboutPoints: []string{
 			"Este es un proyecto personal.",
-			"Esta aplicación es un experimento, creada solo con fines de prueba. No es una aplicación lista para producción.",
 			"Compártelo con tus amigos.",
 		},
 		AboutCode:  "Si quieres ver el código fuente, puedes visitar mi",
