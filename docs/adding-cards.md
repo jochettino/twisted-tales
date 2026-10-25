@@ -21,7 +21,7 @@ The content is a JSON object with exactly these fields:
 
 ```json
 {
-  "title": "Hiccups",
+  "title": "A Glass of Water",
   "prompt": "A man enters a bar and asks for a glass of water. The bartender pulls out a shotgun and points it directly at him. The man says 'Thank you' and walks out.",
   "solution": "The man had the hiccups and wanted water to cure them. The bartender realised this and scared the hiccups out of him with the shotgun instead. The man, cured, thanked him and left."
 }
