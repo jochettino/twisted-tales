@@ -18,7 +18,6 @@ type labels struct {
 	About, AboutCode, AboutRepo, AboutCards              string
 	Tagline                                              string
 	AboutShare, ShareButton, ShareCopied, ShareText      string
-	AboutPoints                                          []string
 }
 
 // siteURL is the public address of the deployed app. Link previews
@@ -45,10 +44,7 @@ var ui = map[string]labels{
 			"Keep asking and discussing theories until someone reconstructs the key events. Then the Game Master reads the full solution aloud.",
 			"Use \"Next\" and \"Back\" to move between cards. You always start from the prompt.",
 		},
-		About: "About",
-		AboutPoints: []string{
-			"This is a personal project.",
-		},
+		About:       "About",
 		AboutShare:  "Share it with friends.",
 		ShareButton: "Share the game",
 		ShareCopied: "Link copied!",
@@ -71,10 +67,7 @@ var ui = map[string]labels{
 			"Seguid preguntando y debatiendo teorías hasta que alguien reconstruya los hechos clave. Entonces el Director de Juego lee la solución completa en voz alta.",
 			"Usad «Siguiente» y «Atrás» para moveros entre cartas. Siempre empezáis por el enunciado.",
 		},
-		About: "Acerca de",
-		AboutPoints: []string{
-			"Este es un proyecto personal.",
-		},
+		About:       "Acerca de",
 		AboutShare:  "Compártelo con tus amigos.",
 		ShareButton: "Compartir el juego",
 		ShareCopied: "¡Enlace copiado!",
