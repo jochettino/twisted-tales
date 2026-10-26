@@ -297,7 +297,7 @@ func TestShareButton(t *testing.T) {
 		for _, want := range []string{
 			tc.line,
 			`<button type="button" class="share" id="share-button" hidden>` + tc.button + `</button>`, // hidden until the script finds a way to share
-			`data-share-url="` + siteURL + `/cards/1?lang=` + tc.lang + `"`,                           // the game's front door in the sharer's language, not the current card
+			`data-share-url="` + siteURL + `/?lang=` + tc.lang + `"`,                                  // the front door in the sharer's language: no card number, so it can't move anyone's saved place
 			`data-copied="` + html.EscapeString(tc.copied) + `"`,
 			"navigator.share(shareData)",
 		} {
@@ -333,6 +333,39 @@ func TestViewingACardSavesLanguageAndCard(t *testing.T) {
 func TestNotFoundDoesNotSaveState(t *testing.T) {
 	if got := setCookies(get(t, "/cards/99?lang=es")); len(got) != 0 {
 		t.Errorf("404 set cookies: %v", got)
+	}
+}
+
+func TestHomeCarriesLanguageButNeverACard(t *testing.T) {
+	redirect := func(path string, cookies ...*http.Cookie) string {
+		t.Helper()
+		rec := get(t, path, cookies...)
+		if rec.Code != http.StatusFound {
+			t.Fatalf("%s = %d, want 302", path, rec.Code)
+		}
+		return rec.Header().Get("Location")
+	}
+	for _, tc := range []struct {
+		name, path string
+		cookies    []*http.Cookie
+		want       string
+	}{
+		{"new visitor, no language", "/", nil, "/cards/1"},
+		{"new visitor, Spanish link", "/?lang=ES", nil, "/cards/1?lang=ES"},
+		{"lowercase language", "/?lang=es", nil, "/cards/1?lang=ES"},
+		{"unknown language is ignored", "/?lang=FR", nil, "/cards/1"},
+		{"returning visitor keeps their place", "/?lang=ES", []*http.Cookie{cookie("card", "50"), cookie("lang", "EN")}, "/cards/50?lang=ES"},
+		{"returning visitor, plain link", "/", []*http.Cookie{cookie("card", "50"), cookie("lang", "ES")}, "/cards/50"},
+		{"a card in the query is ignored", "/?card=7&lang=ES", []*http.Cookie{cookie("card", "50")}, "/cards/50?lang=ES"},
+	} {
+		if got := redirect(tc.path, tc.cookies...); got != tc.want {
+			t.Errorf("%s: %s -> %q, want %q", tc.name, tc.path, got, tc.want)
+		}
+	}
+	// Following the redirect keeps the saved card.
+	rec := get(t, "/cards/50?lang=ES", cookie("card", "50"))
+	if got := setCookies(rec); got["card"] != "50" {
+		t.Errorf("card cookie = %v, want 50", got)
 	}
 }
 

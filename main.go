@@ -5,7 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -62,13 +64,20 @@ func newMux(cards map[string][]Card) *http.ServeMux {
 	mux := http.NewServeMux()
 	registerStatic(mux)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		// Resume at the saved card, if it still exists.
-		lang := resolveLang("", cookieValue(r, langCookie))
+		// Resume at the saved card, if it still exists. An explicit ?lang= is
+		// carried to the card page, but a card number is never taken from the
+		// URL: a shared link must not move someone's saved place.
+		query := r.URL.Query().Get("lang")
+		lang := resolveLang(query, cookieValue(r, langCookie))
 		n, err := strconv.Atoi(cookieValue(r, cardCookie))
 		if err != nil || n < 1 || n > len(cards[lang]) {
 			n = 1
 		}
-		http.Redirect(w, r, "/cards/"+strconv.Itoa(n), http.StatusFound)
+		target := "/cards/" + strconv.Itoa(n)
+		if slices.Contains(languages, strings.ToUpper(query)) {
+			target += "?lang=" + lang
+		}
+		http.Redirect(w, r, target, http.StatusFound)
 	})
 	mux.HandleFunc("GET /cards/{n}", func(w http.ResponseWriter, r *http.Request) {
 		p, ok := cardForRequest(cards, w, r)
