@@ -128,7 +128,7 @@ for n, (slug, et, ep, es_, xt, xp, xs) in enumerate(blocks, start=FIRST_NUMBER):
 
 1. `gofmt -l .`, `go vet ./...` and `go test ./...`. The tests load the real cards and fail if a card is missing in one language, a file name is wrong or a JSON file is malformed.
 2. Check that no title is repeated within a language, and re-read every title against the spoiler rule above.
-3. Run the server on its own port (`PORT=18080 go run .`), open the last new card in both languages (`?lang=ES`), and check the API, for example `curl localhost:18080/api/cards/82?lang=ES`. Stop the server afterwards.
+3. Run the server on its own port (`PORT=18080 go run .`), open the last new card in both languages (the language switch, or `/lang/ES` and `/lang/EN`), and check the API, for example `curl 'localhost:18080/api/cards/82?lang=ES'` (a fresh `curl` has no language cookie, so `?lang=` applies). Stop the server afterwards.
 4. Skim each new card once in the browser. Machine-assisted translations need a human read.
 
 ## Step 5: Deliver

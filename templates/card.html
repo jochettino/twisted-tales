@@ -92,10 +92,10 @@
 </style>
 </head>
 <body>
-<main id="app" data-lang="{{.Lang}}" data-other="{{.Other}}" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}" data-share-url="{{.SiteURL}}/?lang={{.Lang}}" data-share-text="{{.L.ShareText}}" data-copied="{{.L.ShareCopied}}">
+<main id="app" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}" data-share-url="{{.SiteURL}}/?lang={{.Lang}}" data-share-text="{{.L.ShareText}}" data-copied="{{.L.ShareCopied}}">
 <header>
   <h1>Twisted <span>Tales</span></h1>
-  <a class="lang" id="lang-link" href="/cards/{{.Number}}?lang={{.Other}}">{{.L.SwitchTo}}</a>
+  <a class="lang" id="lang-link" href="/lang/{{.Other}}">{{.L.SwitchTo}}</a>
 </header>
 <article class="card" aria-live="polite">
   <div class="card-inner">
@@ -106,9 +106,9 @@
   </div>
 </article>
 <nav>
-  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?lang={{.Lang}}&solution=1">{{.L.Show}}</a>{{end}}
-  <a id="nav-prev" data-nav="card"{{if .Prev}} href="/cards/{{.Prev}}?lang={{.Lang}}"{{else}} class="disabled" aria-disabled="true"{{end}}>&larr; {{.L.Back}}</a>
-  <a id="nav-next" data-nav="card"{{if .Next}} href="/cards/{{.Next}}?lang={{.Lang}}"{{else}} class="disabled" aria-disabled="true"{{end}}>{{.L.Next}} &rarr;</a>
+  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?solution=1">{{.L.Show}}</a>{{end}}
+  <a id="nav-prev" data-nav="card"{{if .Prev}} href="/cards/{{.Prev}}"{{else}} class="disabled" aria-disabled="true"{{end}}>&larr; {{.L.Back}}</a>
+  <a id="nav-next" data-nav="card"{{if .Next}} href="/cards/{{.Next}}"{{else}} class="disabled" aria-disabled="true"{{end}}>{{.L.Next}} &rarr;</a>
 </nav>
 <details class="help">
   <summary>{{.L.Help}}</summary>
@@ -133,20 +133,19 @@
 // JavaScript (or if anything fails) the links work as normal links.
 (function () {
   var app = document.getElementById('app');
-  var lang = app.dataset.lang;
-  var other = app.dataset.other;
   var latest = 0;
 
   function $(id) { return document.getElementById(id); }
 
-  // The page address for a card; the same scheme the server renders in its links.
-  function pageURL(n, solution, l) {
-    return '/cards/' + n + '?lang=' + l + (solution ? '&solution=1' : '');
+  // The page address for a card; the same scheme the server renders in its
+  // links. The language is not in it: the server takes it from the lang cookie.
+  function pageURL(n, solution) {
+    return '/cards/' + n + (solution ? '?solution=1' : '');
   }
 
   function setLink(a, n) {
     if (n) {
-      a.setAttribute('href', pageURL(n, false, lang));
+      a.setAttribute('href', pageURL(n, false));
       a.classList.remove('disabled');
       a.removeAttribute('aria-disabled');
     } else {
@@ -166,13 +165,12 @@
     $('card-solution').hidden = !shown;
     var toggle = $('nav-solution');
     toggle.textContent = shown ? app.dataset.hide : app.dataset.show;
-    toggle.setAttribute('href', pageURL(card.number, !shown, lang));
+    toggle.setAttribute('href', pageURL(card.number, !shown));
     setLink($('nav-prev'), card.prev);
     setLink($('nav-next'), card.next);
-    $('lang-link').setAttribute('href', pageURL(card.number, false, other));
   }
 
-  // pageHref is a page address such as /cards/3?lang=EN&solution=1; the API
+  // pageHref is a page address such as /cards/3?solution=1; the API
   // takes the same path and query under /api. mode: "push" (new history
   // entry), "replace" or "none" (back/forward).
   async function load(pageHref, mode) {

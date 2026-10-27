@@ -60,24 +60,51 @@ func cookieValue(r *http.Request, name string) string {
 	return ""
 }
 
+// varyLanguage tells caches that the response depends on the language
+// inputs, since the same address can now be served in different languages.
+func varyLanguage(w http.ResponseWriter) {
+	w.Header().Add("Vary", "Cookie, Accept-Language")
+}
+
+// resumeCard is the card to open for someone arriving without a card number:
+// the saved one if it still exists, else the first.
+func resumeCard(cards map[string][]Card, r *http.Request, lang string) int {
+	n, err := strconv.Atoi(cookieValue(r, cardCookie))
+	if err != nil || n < 1 || n > len(cards[lang]) {
+		return 1
+	}
+	return n
+}
+
 func newMux(cards map[string][]Card) *http.ServeMux {
 	mux := http.NewServeMux()
 	registerStatic(mux)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		// Resume at the saved card, if it still exists. An explicit ?lang= is
-		// carried to the card page, but a card number is never taken from the
-		// URL: a shared link must not move someone's saved place.
+		// Resume at the saved card, if it still exists. A card number is never
+		// taken from the URL: a shared link must not move someone's saved place.
+		varyLanguage(w)
 		query := r.URL.Query().Get("lang")
-		lang := resolveLang(query, cookieValue(r, langCookie))
-		n, err := strconv.Atoi(cookieValue(r, cardCookie))
-		if err != nil || n < 1 || n > len(cards[lang]) {
-			n = 1
-		}
-		target := "/cards/" + strconv.Itoa(n)
-		if slices.Contains(languages, strings.ToUpper(query)) {
+		lang := resolveLang(cookieValue(r, langCookie), query, r.Header.Get("Accept-Language"))
+		target := "/cards/" + strconv.Itoa(resumeCard(cards, r, lang))
+		// A shared link's ?lang= only matters to someone with no saved
+		// language (it wins over nothing else), so carry it on for them, and for
+		// link-preview crawlers, which have no cookies either.
+		if !slices.Contains(languages, strings.ToUpper(cookieValue(r, langCookie))) &&
+			slices.Contains(languages, strings.ToUpper(query)) {
 			target += "?lang=" + lang
 		}
 		http.Redirect(w, r, target, http.StatusFound)
+	})
+	// The language switch: save the chosen language, then go back to the saved card.
+	mux.HandleFunc("GET /lang/{code}", func(w http.ResponseWriter, r *http.Request) {
+		lang := strings.ToUpper(r.PathValue("code"))
+		if !slices.Contains(languages, lang) {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		setCookie(w, r, langCookie, lang)
+		http.Redirect(w, r, "/cards/"+strconv.Itoa(resumeCard(cards, r, lang)), http.StatusFound)
 	})
 	mux.HandleFunc("GET /cards/{n}", func(w http.ResponseWriter, r *http.Request) {
 		p, ok := cardForRequest(cards, w, r)
@@ -101,20 +128,22 @@ func newMux(cards map[string][]Card) *http.ServeMux {
 	return mux
 }
 
-// cardForRequest resolves the card a request asks for (the {n} path value,
-// ?lang= and ?solution=1) and, if it exists, remembers it in the cookies.
+// cardForRequest resolves the card a request asks for (the {n} path value and
+// ?solution=1; the language comes from resolveLang) and, if it exists,
+// remembers the language and card in the cookies.
 func cardForRequest(cards map[string][]Card, w http.ResponseWriter, r *http.Request) (page, bool) {
+	varyLanguage(w)
 	n, err := strconv.Atoi(r.PathValue("n"))
 	if err != nil {
 		return page{}, false
 	}
 	q := r.URL.Query()
-	lang := resolveLang(q.Get("lang"), cookieValue(r, langCookie))
+	lang := resolveLang(cookieValue(r, langCookie), q.Get("lang"), r.Header.Get("Accept-Language"))
 	p, ok := newPage(cards, lang, n, q.Get("solution") == "1")
 	if !ok {
 		return page{}, false
 	}
-	setCookie(w, r, langCookie, lang)
+	setCookie(w, r, langCookie, lang) // sets it if missing; otherwise rewrites the same value, which renews the expiry
 	setCookie(w, r, cardCookie, strconv.Itoa(n))
 	return p, true
 }

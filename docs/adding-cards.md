@@ -39,7 +39,7 @@ Use plain text only. Escape double quotes inside a value as `\"`, or use single 
 2. **Pick the next number.** Look at the highest prefix in `resources/` and add one (after `050`, use `051`).
 3. **Create both language files** with the same number and slug, for example `051-lighthouse-EN.json` and `051-lighthouse-ES.json`. The two files must tell the same story. The number and slug must match exactly, because the app pairs the languages by that part of the name.
 4. **Run the tests**: `go test ./...`. The app will refuse to start, and the tests will fail, if a card exists in one language only, if a file name has an unknown language suffix, or if a JSON file is malformed.
-5. **Restart the server** (`go run .`) and open the card, in both languages (`?lang=ES`), to check how it reads. Cards are embedded in the binary, so changes only show after a restart.
+5. **Restart the server** (`go run .`) and open the card, in both languages (use the language switch, or `/lang/ES`, `/lang/EN`), to check how it reads. Cards are embedded in the binary, so changes only show after a restart.
 6. **Commit and push to `main`.** CI runs the tests when card JSON changes, and Vercel redeploys from `main`.
 
 ## Editing an existing card

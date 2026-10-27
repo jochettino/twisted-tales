@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,6 +17,19 @@ import (
 func get(t *testing.T, path string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest("GET", path, nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	return serve(t, req)
+}
+
+// getH is get with extra request headers, such as Accept-Language.
+func getH(t *testing.T, path string, header map[string]string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest("GET", path, nil)
+	for k, v := range header {
+		req.Header.Set(k, v)
+	}
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
@@ -66,15 +80,16 @@ func TestSolutionHiddenByDefault(t *testing.T) {
 
 func TestLanguageSwitch(t *testing.T) {
 	en := get(t, "/cards/2").Body.String()
-	if !strings.Contains(en, "Card 2 of") || !strings.Contains(en, `href="/cards/2?lang=ES"`) {
-		t.Error("English page should say 'Card 2 of' and link to the Spanish version of card 2")
+	if !strings.Contains(en, "Card 2 of") || !strings.Contains(en, `id="lang-link" href="/lang/ES"`) {
+		t.Error("English page should say 'Card 2 of' and link to /lang/ES")
 	}
-	es := get(t, "/cards/2?lang=es").Body.String()
-	if !strings.Contains(es, "Carta 2 de") || !strings.Contains(es, `href="/cards/2?lang=EN"`) {
-		t.Error("Spanish page should say 'Carta 2 de' and link to the English version of card 2")
+	es := get(t, "/cards/2", cookie("lang", "ES")).Body.String()
+	if !strings.Contains(es, "Carta 2 de") || !strings.Contains(es, `id="lang-link" href="/lang/EN"`) {
+		t.Error("Spanish page should say 'Carta 2 de' and link to /lang/EN")
 	}
-	if !strings.Contains(es, `href="/cards/3?lang=ES"`) {
-		t.Error("Next link should keep the selected language")
+	// Links carry no language: it comes from the cookie.
+	if !strings.Contains(es, `href="/cards/3"`) || regexp.MustCompile(`href="/(cards|api)[^"]*lang=`).MatchString(es) {
+		t.Error("card links should be plain, e.g. /cards/3, with no ?lang= (only the share link carries one)")
 	}
 }
 
@@ -105,11 +120,11 @@ func TestAboutSection(t *testing.T) {
 func TestPageHooksForScript(t *testing.T) {
 	body := get(t, "/cards/2").Body.String()
 	for _, want := range []string{
-		`data-lang="EN" data-other="ES"`, `data-card="Card" data-of="of"`, `data-show="Show solution" data-hide="Hide solution"`,
+		`data-card="Card" data-of="of"`, `id="lang-link" href="/lang/ES"`, `data-show="Show solution" data-hide="Hide solution"`,
 		`id="lang-link"`, `id="card-counter"`, `id="card-title"`, `id="card-prompt"`, `id="card-solution-text"`,
-		`id="nav-solution" data-nav="solution" href="/cards/2?lang=EN&solution=1"`,
-		`id="nav-prev" data-nav="card" href="/cards/1?lang=EN"`,
-		`id="nav-next" data-nav="card" href="/cards/3?lang=EN"`,
+		`id="nav-solution" data-nav="solution" href="/cards/2?solution=1"`,
+		`id="nav-prev" data-nav="card" href="/cards/1"`,
+		`id="nav-next" data-nav="card" href="/cards/3"`,
 		"fetch('/api' + u.pathname + u.search", // the script survived templating
 	} {
 		if !strings.Contains(body, want) {
@@ -337,28 +352,27 @@ func TestNotFoundDoesNotSaveState(t *testing.T) {
 }
 
 func TestHomeCarriesLanguageButNeverACard(t *testing.T) {
-	redirect := func(path string, cookies ...*http.Cookie) string {
-		t.Helper()
-		rec := get(t, path, cookies...)
-		if rec.Code != http.StatusFound {
-			t.Fatalf("%s = %d, want 302", path, rec.Code)
-		}
-		return rec.Header().Get("Location")
-	}
+	es := map[string]string{"Accept-Language": "es-ES,es;q=0.9"}
 	for _, tc := range []struct {
 		name, path string
+		header     map[string]string
 		cookies    []*http.Cookie
 		want       string
 	}{
-		{"new visitor, no language", "/", nil, "/cards/1"},
-		{"new visitor, Spanish link", "/?lang=ES", nil, "/cards/1?lang=ES"},
-		{"lowercase language", "/?lang=es", nil, "/cards/1?lang=ES"},
-		{"unknown language is ignored", "/?lang=FR", nil, "/cards/1"},
-		{"returning visitor keeps their place", "/?lang=ES", []*http.Cookie{cookie("card", "50"), cookie("lang", "EN")}, "/cards/50?lang=ES"},
-		{"returning visitor, plain link", "/", []*http.Cookie{cookie("card", "50"), cookie("lang", "ES")}, "/cards/50"},
-		{"a card in the query is ignored", "/?card=7&lang=ES", []*http.Cookie{cookie("card", "50")}, "/cards/50?lang=ES"},
+		{"new visitor, no language", "/", nil, nil, "/cards/1"},
+		{"new visitor, Spanish link", "/?lang=ES", nil, nil, "/cards/1?lang=ES"},
+		{"lowercase language", "/?lang=es", nil, nil, "/cards/1?lang=ES"},
+		{"unknown language is ignored", "/?lang=FR", nil, nil, "/cards/1"},
+		{"returning visitor keeps their place and language", "/?lang=ES", nil, []*http.Cookie{cookie("card", "50"), cookie("lang", "EN")}, "/cards/50"},
+		{"returning visitor, plain link", "/", nil, []*http.Cookie{cookie("card", "50"), cookie("lang", "ES")}, "/cards/50"},
+		{"a card in the query is ignored", "/?card=7&lang=ES", nil, []*http.Cookie{cookie("card", "50")}, "/cards/50?lang=ES"},
+		{"Spanish browser needs no query", "/", es, nil, "/cards/1"},
+		{"the link still wins over the browser", "/?lang=EN", es, nil, "/cards/1?lang=EN"},
 	} {
-		if got := redirect(tc.path, tc.cookies...); got != tc.want {
+		rec := getH(t, tc.path, tc.header, tc.cookies...)
+		if rec.Code != http.StatusFound {
+			t.Errorf("%s: %s = %d, want 302", tc.name, tc.path, rec.Code)
+		} else if got := rec.Header().Get("Location"); got != tc.want {
 			t.Errorf("%s: %s -> %q, want %q", tc.name, tc.path, got, tc.want)
 		}
 	}
@@ -391,19 +405,106 @@ func TestSavedLanguageIsUsedWithoutQuery(t *testing.T) {
 	}
 }
 
-func TestExplicitLanguageBeatsSavedLanguage(t *testing.T) {
+func TestSavedLanguageBeatsQueryLanguage(t *testing.T) {
+	// A shared ?lang= link must not change the language someone already chose.
 	rec := get(t, "/cards/2?lang=en", cookie("lang", "ES"))
-	if !strings.Contains(rec.Body.String(), "Card 2 of") {
-		t.Error("?lang=en should override the saved ES language")
+	if !strings.Contains(rec.Body.String(), "Carta 2 de") {
+		t.Error("the saved ES language should win over ?lang=en")
 	}
-	if got := setCookies(rec); got["lang"] != "EN" {
-		t.Errorf("lang cookie = %q, want EN", got["lang"])
+	if got := setCookies(rec); got["lang"] != "ES" {
+		t.Errorf("lang cookie = %q, want it to stay ES", got["lang"])
+	}
+}
+
+func TestQueryLanguageUsedWhenNothingSaved(t *testing.T) {
+	rec := get(t, "/cards/2?lang=es")
+	if !strings.Contains(rec.Body.String(), "Carta 2 de") {
+		t.Error("?lang=es should apply when there is no saved language")
+	}
+	if got := setCookies(rec); got["lang"] != "ES" {
+		t.Errorf("lang cookie = %q, want ES (saved because it was missing)", got["lang"])
+	}
+}
+
+func TestAcceptLanguageIsTheDefault(t *testing.T) {
+	es := map[string]string{"Accept-Language": "es-ES,es;q=0.9,en;q=0.8"}
+	rec := getH(t, "/cards/2", es)
+	if !strings.Contains(rec.Body.String(), "Carta 2 de") {
+		t.Error("a Spanish browser should get the Spanish page by default")
+	}
+	if got := setCookies(rec); got["lang"] != "ES" {
+		t.Errorf("lang cookie = %q, want ES", got["lang"])
+	}
+	// It is only a default: the query, then the cookie, beat it.
+	if body := getH(t, "/cards/2?lang=en", es).Body.String(); !strings.Contains(body, "Card 2 of") {
+		t.Error("?lang=en should beat Accept-Language")
+	}
+	if body := getH(t, "/cards/2", es, cookie("lang", "EN")).Body.String(); !strings.Contains(body, "Card 2 of") {
+		t.Error("the lang cookie should beat Accept-Language")
+	}
+	// Browsers in other languages get English, and so does the API.
+	fr := map[string]string{"Accept-Language": "fr-FR,fr;q=0.9"}
+	if body := getH(t, "/cards/2", fr).Body.String(); !strings.Contains(body, "Card 2 of") {
+		t.Error("an unsupported language should fall back to English")
+	}
+	cards, _ := loadCards()
+	var c apiCard
+	if err := json.Unmarshal(getH(t, "/api/cards/2", es).Body.Bytes(), &c); err != nil || c.Title != cards["ES"][1].Title {
+		t.Errorf("API with a Spanish Accept-Language gave %q, want %q (%v)", c.Title, cards["ES"][1].Title, err)
+	}
+}
+
+func TestLanguageSwitchRoute(t *testing.T) {
+	for _, tc := range []struct {
+		path    string
+		cookies []*http.Cookie
+		lang    string
+		want    string
+	}{
+		{"/lang/ES", nil, "ES", "/cards/1"},
+		{"/lang/es", nil, "ES", "/cards/1"},
+		{"/lang/EN", []*http.Cookie{cookie("lang", "ES"), cookie("card", "50")}, "EN", "/cards/50"},
+		{"/lang/ES", []*http.Cookie{cookie("lang", "EN"), cookie("card", "9999")}, "ES", "/cards/1"},
+	} {
+		rec := get(t, tc.path, tc.cookies...)
+		if rec.Code != http.StatusFound || rec.Header().Get("Location") != tc.want {
+			t.Errorf("%s = %d -> %q, want 302 -> %q", tc.path, rec.Code, rec.Header().Get("Location"), tc.want)
+		}
+		if got := setCookies(rec); got["lang"] != tc.lang {
+			t.Errorf("%s: lang cookie = %q, want %q", tc.path, got["lang"], tc.lang)
+		}
+		if rec.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("%s should not be cached", tc.path)
+		}
+	}
+	for _, path := range []string{"/lang/FR", "/lang/", "/lang/esp"} {
+		if rec := get(t, path); rec.Code != http.StatusNotFound || len(rec.Result().Cookies()) != 0 {
+			t.Errorf("%s = %d with %d cookies, want 404 and none", path, rec.Code, len(rec.Result().Cookies()))
+		}
+	}
+	// Using the switch changes the language of what follows.
+	rec := get(t, "/lang/ES", cookie("lang", "EN"), cookie("card", "5"))
+	c := setCookies(rec)
+	if body := get(t, rec.Header().Get("Location"), cookie("lang", c["lang"]), cookie("card", "5")).Body.String(); !strings.Contains(body, "Carta 5 de") {
+		t.Error("after /lang/ES the saved card should open in Spanish")
+	}
+}
+
+func TestResponsesVaryByLanguageInputs(t *testing.T) {
+	for _, path := range []string{"/", "/cards/1", "/api/cards/1", "/api/cards/9999", "/cards/9999"} {
+		v := strings.Join(get(t, path).Header().Values("Vary"), ",")
+		if !strings.Contains(v, "Cookie") || !strings.Contains(v, "Accept-Language") {
+			t.Errorf("%s: Vary = %q, want Cookie and Accept-Language", path, v)
+		}
 	}
 }
 
 func TestInvalidSavedLanguageFallsBackToDefault(t *testing.T) {
 	if body := get(t, "/cards/2", cookie("lang", "fr")).Body.String(); !strings.Contains(body, "Card 2 of") {
 		t.Error("invalid saved language should fall back to EN")
+	}
+	if body := get(t, "/cards/2?lang=es", cookie("lang", "fr")).Body.String(); !strings.Contains(body, "Carta 2 de") {
+		t.Error("an invalid saved language should not block ?lang=")
 	}
 }
 
