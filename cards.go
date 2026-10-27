@@ -21,7 +21,7 @@ type Card struct {
 }
 
 // languages lists the supported languages; the first is the default.
-// Card files carry the language as a file name suffix, e.g. 001-hiccups-EN.json.
+// Card files carry the language as a file name suffix, e.g. 001-glass-of-water-EN.json.
 var languages = []string{"EN", "ES"}
 
 // resolveLang picks the language for a request, in this order: the saved
