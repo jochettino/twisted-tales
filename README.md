@@ -6,7 +6,7 @@ Twisted Tales is a social mystery card game of lateral thinking where players wo
 
 New to the game? See [How to Play](docs/how-to-play.md).
 
-Want to add or change cards? See [Adding and Editing Cards](docs/adding-cards.md). To add many cards at once from yesnogame.net, see [Populating Cards](docs/populating-cards.md).
+Want to add or change cards? See [Adding and Editing Cards](docs/adding-cards.md).
 
 This repository contains a small web prototype that shows one card at a time, in English or Spanish. The UI is designed mobile first, for players using a phone.
 
