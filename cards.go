@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -23,15 +24,55 @@ type Card struct {
 // Card files carry the language as a file name suffix, e.g. 001-hiccups-EN.json.
 var languages = []string{"EN", "ES"}
 
-// resolveLang picks the language for a request: the explicit ?lang= value if
-// supported, else the saved one, else the default.
-func resolveLang(query, saved string) string {
-	for _, s := range []string{query, saved} {
+// resolveLang picks the language for a request, in this order: the saved
+// language (the lang cookie), the ?lang= value (what a shared link carries),
+// the browser's Accept-Language header, and finally the default. Only the
+// language switch (see /lang/{code} in main.go) overrides a saved language.
+func resolveLang(saved, query, acceptLanguage string) string {
+	for _, s := range []string{saved, query} {
 		if s = strings.ToUpper(s); slices.Contains(languages, s) {
 			return s
 		}
 	}
+	if lang := fromAcceptLanguage(acceptLanguage); lang != "" {
+		return lang
+	}
 	return languages[0]
+}
+
+// fromAcceptLanguage returns the supported language the browser prefers, or ""
+// if the header names none. Browsers send it automatically, e.g.
+// "es-ES,es;q=0.9,en;q=0.8": tags are language[-region] and q is the
+// preference from 0 to 1 (1 when missing, 0 meaning "not acceptable"). The
+// region is ignored, so es-MX and es-AR both count as Spanish. Ties go to the
+// language listed first.
+func fromAcceptLanguage(header string) string {
+	if len(header) > 1024 { // far more than any real browser sends
+		header = header[:1024]
+	}
+	best, bestQ := "", 0.0
+	for _, part := range strings.Split(header, ",") {
+		tag, params, _ := strings.Cut(part, ";")
+		primary, _, _ := strings.Cut(strings.TrimSpace(tag), "-")
+		q := 1.0
+		for _, param := range strings.Split(params, ";") {
+			if name, value, ok := strings.Cut(strings.TrimSpace(param), "="); ok && strings.EqualFold(strings.TrimSpace(name), "q") {
+				if v, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil && v >= 0 && v <= 1 {
+					q = v
+				}
+			}
+		}
+		if q <= bestQ {
+			continue
+		}
+		for _, lang := range languages {
+			if strings.EqualFold(primary, lang) {
+				best, bestQ = lang, q
+				break
+			}
+		}
+	}
+	return best
 }
 
 // loadCards reads every JSON file in resources/ (xxx-smalltitle-LANG.json)
