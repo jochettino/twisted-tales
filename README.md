@@ -48,3 +48,25 @@ For a quick visual check, run `go run .` and open <http://localhost:8080>.
 ## Credits
 
 Many of the cards were adapted from [yesnogame.net](https://yesnogame.net), which publishes these situation puzzles in several languages. Where a puzzle was available in only one language there, the other language is our own translation. Thanks to the authors and community behind that site.
+
+## Donations
+
+Twisted Tales is free and always will be. If you enjoy it and want to support its upkeep, you can send a Bitcoin donation. Thank you!
+
+### ⚡ Lightning
+
+| | |
+| --- | --- |
+| **Best for** | Small, instant tips with low fees |
+| **Type** | LNURL-pay (paste it into any Lightning wallet that supports LNURL) |
+| **Address** | `lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkwct4v3uhx6r9d3krjdek4rwfw2` |
+
+### ₿ Bitcoin on-chain
+
+| | |
+| --- | --- |
+| **Best for** | Larger amounts |
+| **Type** | Taproot address |
+| **Address** | `bc1pytwk3pk8fsn58jv8zjc649vqpj2dvlxatun2u9dz9a849wwjlr2s0n9wau` |
+
+Always double-check the first and last characters of the address after pasting it. Bitcoin transactions can't be reversed.
