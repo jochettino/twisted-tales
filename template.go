@@ -26,7 +26,7 @@ const siteURL = "https://twisted-tales-game.vercel.app"
 
 // repoURL and cardsSourceURL are linked from the About section.
 const (
-	repoURL        = "https://github.com/jochettino/twisted-tales"
+	repoURL        = "https://github.com/joshferatu/twisted-tales"
 	cardsSourceURL = "https://yesnogame.net"
 )
 
