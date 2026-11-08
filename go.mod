@@ -1,3 +1,3 @@
-module github.com/jochettino/twisted-tales
+module github.com/joshferatu/twisted-tales
 
 go 1.22

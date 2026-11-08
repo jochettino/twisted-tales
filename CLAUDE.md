@@ -68,4 +68,4 @@ Several agents may work on this repo at the same time, so follow this to avoid c
 
 ## Git
 
-Commits are authored as `jochettino` with a GitHub noreply email (set in the global git config). Don't substitute a personal email.
+Commits are authored as `joshferatu` with a GitHub noreply email (set in the global git config). Don't substitute a personal email.
