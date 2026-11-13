@@ -43,12 +43,24 @@
      The perspective is what makes the card turn over in 3D rather than squash. */
   .stage { position: relative; perspective: 1400px; }
   .card {
+    position: relative;
     margin: 0 0 1.25rem; touch-action: pan-y; /* a swipe drags the card sideways, a drag up or down scrolls */
     -webkit-tap-highlight-color: transparent; /* no grey flash when the card is tapped */
-    transition: height 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: height 600ms cubic-bezier(0.4, 0, 0.2, 1), scale 220ms ease-out;
   }
-  .card.dragging { user-select: none; -webkit-user-select: none; }
+  /* A card being dragged is lifted off the table: it grows a hair and casts a
+     deeper, softer shadow, while the one riding alongside casts a lighter one. */
+  .card.dragging { scale: 1.012; user-select: none; -webkit-user-select: none; }
+  .card.dragging .side { box-shadow: 0 0 0 1px #000, 0 24px 46px rgba(196, 20, 28, 0.4); }
   .card.copy { position: absolute; top: 0; left: 0; width: 100%; margin: 0; z-index: 2; pointer-events: none; }
+  .card.copy .side { box-shadow: 0 0 0 1px #000, 0 8px 20px rgba(196, 20, 28, 0.18); }
+  /* One faint edge under the card, shaped like the card itself and hidden
+     behind it: it is the top card of a pile, not a panel. */
+  .card::after {
+    content: ""; position: absolute; left: 5px; right: 5px; bottom: -6px; height: 40px;
+    border: 1px solid var(--white); border-radius: 14px;
+    opacity: 0.18; pointer-events: none; z-index: -1;
+  }
 
   /* The card turns over to show its solution, as a real one would. The two
      sides sit in the same grid cell, so the card is as tall as the longer one;
@@ -118,6 +130,15 @@
   [hidden] { display: none !important; }
   a:focus-visible, summary:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
 
+  /* On a touch screen nothing says the card can be turned over, so a line says
+     it until a solution has been seen once; the space it takes is kept, so the
+     page does not jump when it goes. */
+  .hint { display: none; margin: 1.5rem 0 0; text-align: center; color: var(--muted);
+          font-family: system-ui, sans-serif; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+          transition: opacity 300ms, visibility 0s 300ms; }
+  html.swipe .hint { display: block; }
+  html.swipe .hint.used { opacity: 0; visibility: hidden; }
+
   details.help + details.help { margin-top: 0.75rem; }
   details.help { margin-top: 1.5rem; border: 1px solid #444; border-radius: 6px; padding: 0 1rem; font-size: 0.95rem; }
   details.help summary { cursor: pointer; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;
@@ -163,6 +184,7 @@
   <a id="nav-prev" data-nav="card"{{if .Prev}} href="/cards/{{.Prev}}"{{else}} class="disabled" aria-disabled="true"{{end}}>&larr; {{.L.Back}}</a>
   <a id="nav-next" data-nav="card"{{if .Next}} href="/cards/{{.Next}}"{{else}} class="disabled" aria-disabled="true"{{end}}>{{.L.Next}} &rarr;</a>
 </nav>
+<p class="hint" id="card-hint">{{.L.Hint}}</p>
 <details class="help">
   <summary>{{.L.Help}}</summary>
   <p>{{.L.HelpIntro}}</p>
@@ -199,6 +221,7 @@
   var fetching = {};                        // page address -> prefetch in flight
   var settle = null;                        // end the slide still running, now
   var unsize = 0;                           // pending timer that drops the height a turning card was given
+  var hinted = false;                       // the hint under the card goes once a solution has been seen
   var SLIDE = 340;                          // ms for a card to cross the screen
   var MIN = 60;                             // a shorter drag, if not a flick, is a tap
 
@@ -250,6 +273,10 @@
     cardEl.classList.toggle('flipped', open);
     hide(cardEl.querySelector('.side.front'), open);
     hide(cardEl.querySelector('.side.back'), !open);
+    if (open && !hinted) { // the card has been turned over once: the hint can go
+      hinted = true;
+      $('card-hint').classList.add('used');
+    }
     cardEl.style.height = '';
     if (open === was) return; // same side, new text: the sides size it themselves
     var to = cardEl.offsetHeight;

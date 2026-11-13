@@ -18,6 +18,7 @@ type labels struct {
 	About, AboutCode, AboutRepo, AboutCards                 string
 	Tagline                                                 string
 	AboutShare, ShareButton, ShareCopied, ShareText         string
+	Hint                                                    string
 }
 
 // siteURL is the public address of the deployed app. Link previews
@@ -53,6 +54,7 @@ var ui = map[string]labels{
 		AboutRepo:   "GitHub repo",
 		AboutCards:  "Many of the cards come from",
 		Tagline:     "A lateral-thinking mystery card game. Work out what really happened by asking yes/no questions.",
+		Hint:        "Double-tap the card to see the solution",
 	},
 	"ES": {
 		Card: "Carta", Of: "de", Back: "Atrás", Next: "Siguiente",
@@ -76,6 +78,7 @@ var ui = map[string]labels{
 		AboutRepo:   "repositorio de GitHub",
 		AboutCards:  "Muchas de las cartas proceden de",
 		Tagline:     "Un juego de cartas de misterio y pensamiento lateral. Descubre qué ocurrió de verdad haciendo preguntas de sí o no.",
+		Hint:        "Doble toque en la carta para ver la solución",
 	},
 }
 
