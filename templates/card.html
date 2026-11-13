@@ -43,30 +43,13 @@
     background: var(--ink); border: 3px solid var(--white); border-radius: 14px;
     padding: 0.5rem; margin: 0 0 1.25rem;
     box-shadow: 0 0 0 1px #000, 0 12px 30px rgba(196, 20, 28, 0.25);
-    touch-action: pan-y; transition: transform 180ms ease-out; /* a swipe drags the card sideways */
+    touch-action: pan-y; /* a swipe drags the card sideways, a drag up or down scrolls */
   }
-  /* The stage holds the card and, while a card is being slid away, a copy of
-     the card that was on screen. */
+  /* The stage holds the card and, while a card is being dragged or slid away, a
+     copy of the card beside it. */
   .stage { position: relative; }
-  .card.dragging { transition: none; user-select: none; -webkit-user-select: none; }
-  .card.leaving { position: absolute; top: 0; left: 0; width: 100%; margin: 0; z-index: 2; pointer-events: none; }
-
-  /* Going to the next card slides the old one out to the left and brings the
-     next one in from the right, like passing a card; Back is the reverse. Both
-     move by one card width, so their edges stay together and no gap opens up
-     between them. */
-  @keyframes slide-out-left  { to   { transform: translateX(-100%) rotate(-2deg); opacity: 0.5; } }
-  @keyframes slide-out-right { to   { transform: translateX(100%)  rotate(2deg);  opacity: 0.5; } }
-  @keyframes slide-in-right  { from { transform: translateX(100%)  rotate(2deg);  opacity: 0.5; } }
-  @keyframes slide-in-left   { from { transform: translateX(-100%) rotate(-2deg); opacity: 0.5; } }
-  .card.leaving.next  { animation: slide-out-left 340ms ease-out forwards; }
-  .card.leaving.prev  { animation: slide-out-right 340ms ease-out forwards; }
-  .card.entering.next { animation: slide-in-right 340ms ease-out both; }
-  .card.entering.prev { animation: slide-in-left 340ms ease-out both; }
-  @media (prefers-reduced-motion: reduce) {
-    .card { transition: none; }
-    .card.leaving, .card.entering { animation: none !important; }
-  }
+  .card.dragging { user-select: none; -webkit-user-select: none; }
+  .card.copy { position: absolute; top: 0; left: 0; width: 100%; margin: 0; z-index: 2; pointer-events: none; }
 
   .card-inner {
     border: 1px solid var(--white); border-radius: 8px; padding: 1.5rem 1.25rem 1.75rem;
@@ -167,19 +150,24 @@
 <script>
 // Progressive enhancement: Back, Next and Show/Hide solution fetch the card as
 // JSON from /api/cards/{n} and fill it into the existing elements, instead of
-// reloading the page. Changing card also slides the old card away and the new
-// one in, and on a touch screen a swipe across the card does the same, which
-// is why Back/Next are hidden there. The page is fully server-rendered, so
-// without JavaScript (or if anything fails) the links work as normal links.
+// reloading the page. The cards either side are fetched ahead of time, so a
+// swipe on a touch screen carries the neighbouring card along beside this one
+// and the slide carries on from where the finger left it. The page is fully
+// server-rendered, so without JavaScript (or if anything fails) the links work
+// as normal links.
 (function () {
   var app = document.getElementById('app');
   var stage = document.getElementById('card-stage');
   var cardEl = stage.querySelector('.card');
-  var latest = 0;
+  var latest = 0;                           // the newest load; older ones are dropped
   var current = Number(app.dataset.number); // the card on screen
   var total = Number(app.dataset.total);
-  var pending = 0; // the card being loaded, if any: a second swipe starts from there
-  var slides = 0; // a count, so a cut-short slide's cleanup leaves the next one alone
+  var wanted = 0;                           // the card being loaded, if any (see go)
+  var cards = {};                           // page address -> card, kept ahead of time
+  var fetching = {};                        // page address -> prefetch in flight
+  var settle = null;                        // end the slide still running, now
+  var SLIDE = 340;                          // ms for a card to cross the screen
+  var MIN = 60;                             // a shorter drag, if not a flick, is a tap
 
   function $(id) { return document.getElementById(id); }
 
@@ -206,73 +194,202 @@
     }
   }
 
-  // Fill the card data into the page. Only textContent is used, never HTML.
-  function render(card) {
-    current = card.number;
-    pending = 0;
-    var shown = card.solution !== undefined;
-    $('card-counter').textContent = app.dataset.card + ' ' + card.number + ' ' + app.dataset.of + ' ' + card.total;
-    $('card-title').textContent = card.title;
-    $('card-prompt').textContent = card.prompt;
-    $('card-solution-text').textContent = shown ? card.solution : '';
-    $('card-solution').hidden = !shown;
+  // Put a card's text into a card element: the page's own one, or a copy of it.
+  // Only textContent is used, never HTML.
+  function fill(el, card) {
+    var q = function (id) { return el.querySelector('#' + id); };
+    var open = card.solution !== undefined;
+    q('card-counter').textContent = app.dataset.card + ' ' + card.number + ' ' + app.dataset.of + ' ' + card.total;
+    q('card-title').textContent = card.title;
+    q('card-prompt').textContent = card.prompt;
+    q('card-solution-text').textContent = open ? card.solution : '';
+    q('card-solution').hidden = !open;
+  }
+
+  // The buttons around the card, and the cards to have ready next.
+  function links(card) {
+    var open = card.solution !== undefined;
     var toggle = $('nav-solution');
-    toggle.textContent = shown ? app.dataset.hide : app.dataset.show;
-    toggle.setAttribute('href', pageURL(card.number, !shown));
+    toggle.textContent = open ? app.dataset.hide : app.dataset.show;
+    toggle.setAttribute('href', pageURL(card.number, !open));
     setLink($('nav-prev'), card.prev);
     setLink($('nav-next'), card.next);
+    if (card.prev) prefetch(pageURL(card.prev, false));
+    if (card.next) prefetch(pageURL(card.next, false));
   }
 
-  // Pass the card on screen, and bring the next one in: a copy of the old card
-  // slides out while fill() puts the new text into the card, which slides in.
-  // dir is "next" (out to the left, in from the right) or "prev".
-  function slide(dir, fill) {
-    stage.querySelectorAll('.leaving').forEach(function (el) { el.remove(); }); // left by a slide cut short
-    var leaving = cardEl.cloneNode(true);
-    leaving.removeAttribute('id');
-    leaving.removeAttribute('aria-live');
-    leaving.setAttribute('aria-hidden', 'true');
-    leaving.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
-    leaving.classList.add('leaving', dir);
-    stage.appendChild(leaving);
-    fill();
-    cardEl.classList.add('entering', dir);
-    var token = ++slides;
-    setTimeout(function () {
-      if (token !== slides) return;
-      leaving.remove();
-      cardEl.classList.remove('entering', 'next', 'prev');
-    }, 400);
+  // Fill the page with a card.
+  function render(card) {
+    current = card.number;
+    wanted = 0;
+    fill(cardEl, card);
+    links(card);
   }
 
-  // Move step cards (-1 for Back, 1 for Next) from the card on screen, or from
-  // the one already on its way if a swipe arrives while it loads; the ends stop
-  // it.
-  function go(step) {
-    var n = (pending || current) + step;
-    if (n < 1 || n > total) return;
-    load(pageURL(n, false), 'push');
+  // Ask for a card for real. The page makes this request whenever it opens a
+  // card, because it is the one that saves the card and the language in the
+  // cookies (a prefetch does not); the answer is only needed when the card was
+  // not at hand yet.
+  function request(pageHref) {
+    var u = new URL(pageHref, location.href);
+    return fetch('/api' + u.pathname + u.search, { credentials: 'same-origin' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (card) {
+        cards[pageHref] = card;
+        return card;
+      });
   }
 
-  // pageHref is a page address such as /cards/3?solution=1; the API
-  // takes the same path and query under /api. mode: "push" (new history
-  // entry), "replace" or "none" (back/forward).
-  async function load(pageHref, mode) {
+  // Fetch a card ahead of time, so a swipe can carry it along with the finger.
+  function prefetch(pageHref) {
+    if (cards[pageHref] || fetching[pageHref]) return;
+    var u = new URL(pageHref, location.href);
+    var p = fetch('/api' + u.pathname + u.search, {
+      credentials: 'same-origin',
+      headers: { 'X-Prefetch': '1' },
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (card) {
+        cards[pageHref] = card;
+        delete fetching[pageHref];
+        return card;
+      });
+    fetching[pageHref] = p;
+    p.catch(function () { delete fetching[pageHref]; }); // try again next time
+  }
+
+  // A copy of the card element, showing the given card, laid over the stage.
+  // The caller positions it and throws it away when done with it.
+  function copy(card) {
+    var el = cardEl.cloneNode(true);
+    if (card) fill(el, card); // while it still has the ids fill() looks up
+    el.removeAttribute('id');
+    el.removeAttribute('aria-live');
+    el.setAttribute('aria-hidden', 'true');
+    el.querySelectorAll('[id]').forEach(function (x) { x.removeAttribute('id'); });
+    el.classList.remove('dragging');
+    el.classList.add('copy');
+    el.style.transform = '';
+    stage.appendChild(el);
+    return el;
+  }
+
+  // Slide the card on screen away and the one asked for in after it. dx is
+  // where a swipe left the card (0 for a click), and beside the copy of the new
+  // card already riding along with the finger. Both move exactly one card width
+  // apart, so their edges stay together; the real card is filled with the new
+  // one at the end and the copy thrown away, which cannot be seen because they
+  // end up in the same place showing the same card.
+  function pass(dir, card, dx, beside) {
+    if (settle) settle();
+    if (!allowMotion()) {
+      if (beside) beside.remove();
+      cardEl.style.transform = '';
+      render(card);
+      return;
+    }
+    var w = cardEl.offsetWidth;
+    var leaving = dir === 'next' ? -w : w; // where the card on screen goes
+    var from = -leaving + dx;              // and where the new one starts, just beside it
+    var tilt = dir === 'next' ? -2 : 2;
+    var left = Math.max(120, SLIDE * (1 - Math.abs(dx) / w)); // less to travel when the finger did more
+    var into = beside || copy(card);
+    // The card has been turned even though the slide is still going, so a
+    // second swipe already knows which card it starts from.
+    current = card.number;
+    wanted = 0;
+    links(card);
+    var out = cardEl.animate([
+      { transform: 'translateX(' + dx + 'px) rotate(0deg)', opacity: 1 },
+      { transform: 'translateX(' + leaving + 'px) rotate(' + tilt + 'deg)', opacity: 0.55 },
+    ], { duration: left, easing: 'ease-out', fill: 'forwards' });
+    var inn = into.animate([
+      { transform: 'translateX(' + from + 'px) rotate(' + tilt + 'deg)', opacity: 0.55 },
+      { transform: 'translateX(0) rotate(0deg)', opacity: 1 },
+    ], { duration: left, easing: 'ease-out', fill: 'forwards' });
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      settle = null;
+      out.cancel();
+      inn.cancel();
+      into.remove();
+      cardEl.style.transform = '';
+      render(card);
+    }
+    settle = finish;
+    Promise.all([out.finished, inn.finished]).then(finish, finish);
+  }
+
+  // Below the threshold the gesture was a tap or a nudge, not a swipe: the card
+  // springs back and the neighbouring one goes back out of sight with it.
+  function spring(dx, beside, step) {
+    var w = cardEl.offsetWidth;
+    var ms = Math.min(220, 60 + Math.abs(dx));
+    var back = cardEl.animate([
+      { transform: 'translateX(' + dx + 'px)' },
+      { transform: 'translateX(0)' },
+    ], { duration: ms, easing: 'ease-out', fill: 'forwards' });
+    back.finished.then(function () {
+      back.cancel();
+      cardEl.style.transform = '';
+    }, function () {});
+    if (!beside) return;
+    var away = beside.animate([
+      { transform: 'translateX(' + (step * w + dx) + 'px)' },
+      { transform: 'translateX(' + step * w + 'px)' },
+    ], { duration: ms, easing: 'ease-out', fill: 'forwards' });
+    Promise.all([away.finished]).then(function () {
+      away.cancel();
+      beside.remove();
+    }, function () { beside.remove(); });
+  }
+
+  // Move step cards (-1 for Back, 1 for Next), from where a swipe left the card
+  // (dx, 0 for a click) with the neighbouring copy beside it, if there is one.
+  function go(step, dx, beside) {
+    var n = (wanted || current) + step;
+    if (n < 1 || n > total) {
+      if (beside) beside.remove();
+      return;
+    }
+    load(pageURL(n, false), 'push', dx, beside);
+  }
+
+  // pageHref is a page address such as /cards/3?solution=1; the API takes the
+  // same path and query under /api. mode: "push" (new history entry), "replace"
+  // or "none" (back/forward). dx and beside continue a swipe (see pass).
+  async function load(pageHref, mode, dx, beside) {
     var id = ++latest;
+    var u = new URL(pageHref, location.href);
+    var n = Number(u.pathname.split('/').pop()) || current;
     var focused = document.activeElement && document.activeElement.id;
+    var card = cards[pageHref];
     try {
-      var u = new URL(pageHref, location.href);
-      pending = Number(u.pathname.split('/').pop()) || current;
-      var res = await fetch('/api' + u.pathname + u.search, { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      var card = await res.json();
-      if (id !== latest) return; // a newer click superseded this one
+      if (card) {
+        request(pageHref).catch(function () {}); // only to save the place
+      } else {
+        wanted = n;
+        card = await request(pageHref);
+      }
+      if (id !== latest) return; // a newer move superseded this one
       // The direction comes from the card numbers, so a swipe, a tap and the
       // browser's own Back/Forward all animate alike. Showing the solution
       // stays on the same card and does not slide.
       var dir = card.number > current ? 'next' : card.number < current ? 'prev' : '';
-      if (dir && allowMotion()) slide(dir, function () { render(card); });
-      else render(card);
+      if (dir) {
+        pass(dir, card, dx || 0, beside);
+      } else {
+        if (beside) beside.remove();
+        render(card);
+      }
       if (mode === 'push') history.pushState(null, '', pageHref);
       if (mode === 'replace') history.replaceState(null, '', pageHref);
       if (mode === 'push') window.scrollTo(0, 0);
@@ -280,7 +397,8 @@
       if (el && el.hasAttribute('href')) el.focus();
     } catch (err) {
       if (id !== latest) return;
-      pending = 0;
+      wanted = 0;
+      if (beside) beside.remove();
       location.href = pageHref;
     }
   }
@@ -297,50 +415,68 @@
 
   window.addEventListener('popstate', function () { load(location.href, 'none'); });
 
-  // Follow one swipe across the card: left for the next card, right for the
-  // previous one, matching the way they slide. A vertical drag is left to the
-  // browser, so the page still scrolls. Touch only: a mouse drag would just
-  // select text, and its Back/Next links stay in view anyway.
-  function swipe() {
-    var start = null; // the drag in progress
-    var MIN = 60;     // a drag shorter than this (and not a flick) is cancelled
+  // The server sent only this card, so fetch the two either side straight away.
+  if (current > 1) prefetch(pageURL(current - 1, false));
+  if (current < total) prefetch(pageURL(current + 1, false));
 
-    function atEnd(dx) {
-      var a = $(dx < 0 ? 'nav-next' : 'nav-prev');
-      return !a.hasAttribute('href');
+  // Follow one swipe across the card: left for the next card, right for the
+  // previous one, with the neighbouring card riding along beside it so the
+  // gesture uncovers it. A drag that starts more vertically is left to the
+  // browser, so the page still scrolls. Touch screens only: a mouse drag would
+  // just select text, and there Back/Next are in view anyway.
+  function finger() {
+    var drag = null;   // the drag in progress
+    var beside = null; // the neighbouring card, riding along
+
+    function atEnd(step) {
+      var n = current + step;
+      return n < 1 || n > total;
     }
 
-    function reset() {
-      start = null;
-      cardEl.classList.remove('dragging');
-      cardEl.style.transform = '';
+    function place(dx, step) {
+      cardEl.style.transform = 'translateX(' + dx + 'px)';
+      if (beside) beside.style.transform = 'translateX(' + (step * cardEl.offsetWidth + dx) + 'px)';
     }
 
     cardEl.addEventListener('pointerdown', function (e) {
-      if (!start) start = { x: e.clientX, y: e.clientY, t: e.timeStamp, held: false };
+      if (drag) return;
+      if (settle) settle(); // a new swipe ends the slide still running
+      drag = { x: e.clientX, y: e.clientY, t: e.timeStamp, dx: 0, step: 0, held: false };
     });
 
     cardEl.addEventListener('pointermove', function (e) {
-      if (!start) return;
-      var dx = e.clientX - start.x, dy = e.clientY - start.y;
-      if (!start.held) {
-        if (Math.abs(dy) > Math.abs(dx)) { start = null; return; } // the page scrolls instead
+      if (!drag) return;
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.held) {
+        if (Math.abs(dy) > Math.abs(dx)) { drag = null; return; } // the page scrolls instead
         if (Math.abs(dx) < 8) return;
-        start.held = true;
+        drag.held = true;
+        drag.step = dx < 0 ? 1 : -1;
         cardEl.classList.add('dragging');
+        var card = !atEnd(drag.step) && cards[pageURL(current + drag.step, false)];
+        if (card) beside = copy(card); // not fetched yet: the card moves on its own
       }
+      drag.dx = dx;
       // Past the first or last card there is nowhere to go, so the card resists.
-      cardEl.style.transform = 'translateX(' + (atEnd(dx) ? dx / 4 : dx) + 'px)';
+      place(atEnd(drag.step) ? dx / 4 : dx, drag.step);
     });
 
     function release(e, cancelled) {
-      var s = start;
-      if (!s || !s.held) { reset(); return; }
-      var dx = e.clientX - s.x;
+      var s = drag;
+      drag = null;
+      cardEl.classList.remove('dragging');
+      if (!s || !s.held) {
+        place(0, 0);
+        if (beside) { beside.remove(); beside = null; }
+        return;
+      }
+      var dx = s.dx;
       var flick = Math.abs(dx) > MIN / 2 && Math.abs(dx) > 0.4 * (e.timeStamp - s.t); // px per ms
-      var commit = !cancelled && (Math.abs(dx) > MIN || flick);
-      reset();
-      if (commit) go(dx < 0 ? 1 : -1);
+      var commit = !cancelled && !atEnd(s.step) && (Math.abs(dx) > MIN || flick);
+      var near = beside;
+      beside = null;
+      if (commit) go(s.step, dx, near);
+      else spring(dx, near, s.step);
     }
 
     cardEl.addEventListener('pointerup', function (e) { release(e, false); });
@@ -349,7 +485,7 @@
 
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
     document.documentElement.classList.add('swipe'); // hides Back/Next (see the CSS)
-    swipe();
+    finger();
   }
 
   // Share button (About section). An installed app runs full screen with no

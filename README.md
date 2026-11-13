@@ -30,7 +30,7 @@ Cards are embedded into the binary, so restart the server after adding or editin
 
 - **Go**, standard library only (`net/http`, `html/template`, `embed`, `encoding/json`), no external dependencies.
 - **Cards** are JSON files in `resources/`, named `xxx-smalltitle-LANG.json` (e.g. `001-glass-of-water-EN.json`), with `title`, `prompt` and `solution` fields. Every card must exist in every language (EN and ES).
-- **Frontend** is server-rendered HTML and CSS in `templates/card.html`. A small inline script (no libraries) makes Back, Next and Show/Hide solution fetch the card as JSON from `GET /api/cards/{n}?solution=1` and update only the card instead of reloading the page; without JavaScript they are ordinary links. Changing card slides the old one out and the new one in, and on a touch screen a swipe across the card does the same instead of Back/Next.
+- **Frontend** is server-rendered HTML and CSS in `templates/card.html`. A small inline script (no libraries) makes Back, Next and Show/Hide solution fetch the card as JSON from `GET /api/cards/{n}?solution=1` and update only the card instead of reloading the page; without JavaScript they are ordinary links. Changing card slides the old one away and the new one in; on a touch screen the card follows your finger with the next one riding alongside, instead of Back/Next.
 - **User state** (selected language and current card) is remembered in browser cookies, so the server stores nothing. Reopening the site resumes where you left off. Cookies are marked `Secure` when served over https, and still work on plain `http://localhost`.
 
 ## Testing

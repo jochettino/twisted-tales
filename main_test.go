@@ -205,6 +205,21 @@ func TestAPILanguageAndEnds(t *testing.T) {
 	}
 }
 
+func TestAPIPrefetchDoesNotSaveCookies(t *testing.T) {
+	// The page reads the neighbouring cards ahead of a swipe; that must not move
+	// the saved place.
+	rec := getH(t, "/api/cards/2", map[string]string{prefetchHeader: "1"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("prefetch = %d, want 200", rec.Code)
+	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Errorf("a prefetch should not set cookies, got %v", rec.Result().Cookies())
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", cc)
+	}
+}
+
 func TestAPINotFoundIsJSON(t *testing.T) {
 	for _, path := range []string{"/api/cards/0", "/api/cards/99", "/api/cards/x"} {
 		rec := get(t, path)

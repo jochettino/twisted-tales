@@ -33,6 +33,11 @@ const (
 	cookieMaxAge = 365 * 24 * 60 * 60
 )
 
+// prefetchHeader marks the requests the page makes ahead of time for the
+// neighbouring cards. They must not save the cookies: only a card actually
+// opened may move the saved place.
+const prefetchHeader = "X-Prefetch"
+
 // isHTTPS reports whether the client reached us over https, either directly or
 // through a TLS-terminating proxy such as Vercel.
 func isHTTPS(r *http.Request) bool {
@@ -117,7 +122,9 @@ func newMux(cards map[string][]Card) *http.ServeMux {
 		}
 	})
 	// The same card as JSON, for the in-page script (see templates/card.html).
+	// The answer depends on the cookies, so it must never be cached.
 	mux.HandleFunc("GET /api/cards/{n}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
 		p, ok := cardForRequest(cards, w, r)
 		if !ok {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "card not found"})
@@ -130,7 +137,8 @@ func newMux(cards map[string][]Card) *http.ServeMux {
 
 // cardForRequest resolves the card a request asks for (the {n} path value and
 // ?solution=1; the language comes from resolveLang) and, if it exists,
-// remembers the language and card in the cookies.
+// remembers the language and card in the cookies. A prefetch (see
+// templates/card.html) only reads ahead, so it leaves the saved place alone.
 func cardForRequest(cards map[string][]Card, w http.ResponseWriter, r *http.Request) (page, bool) {
 	varyLanguage(w)
 	n, err := strconv.Atoi(r.PathValue("n"))
@@ -143,8 +151,10 @@ func cardForRequest(cards map[string][]Card, w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return page{}, false
 	}
-	setCookie(w, r, langCookie, lang) // sets it if missing; otherwise rewrites the same value, which renews the expiry
-	setCookie(w, r, cardCookie, strconv.Itoa(n))
+	if r.Header.Get(prefetchHeader) != "1" {
+		setCookie(w, r, langCookie, lang) // sets it if missing; otherwise rewrites the same value, which renews the expiry
+		setCookie(w, r, cardCookie, strconv.Itoa(n))
+	}
 	return p, true
 }
 
