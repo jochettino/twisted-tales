@@ -21,7 +21,7 @@
 <style>
   :root { --red: #c4141c; --red-dark: #7a0b10; --white: #f4f1ea; --muted: #8d8a85; --ink: #050505; }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; overflow-x: clip; /* a sliding card must not scroll the page */ }
   body {
     margin: 0; min-height: 100vh; min-height: 100dvh;
     background: radial-gradient(ellipse at top, #1a0507 0%, #000 60%) fixed #000;
@@ -43,7 +43,31 @@
     background: var(--ink); border: 3px solid var(--white); border-radius: 14px;
     padding: 0.5rem; margin: 0 0 1.25rem;
     box-shadow: 0 0 0 1px #000, 0 12px 30px rgba(196, 20, 28, 0.25);
+    touch-action: pan-y; transition: transform 180ms ease-out; /* a swipe drags the card sideways */
   }
+  /* The stage holds the card and, while a card is being slid away, a copy of
+     the card that was on screen. */
+  .stage { position: relative; }
+  .card.dragging { transition: none; user-select: none; -webkit-user-select: none; }
+  .card.leaving { position: absolute; top: 0; left: 0; width: 100%; margin: 0; z-index: 2; pointer-events: none; }
+
+  /* Going to the next card slides the old one out to the left and brings the
+     next one in from the right, like passing a card; Back is the reverse. Both
+     move by one card width, so their edges stay together and no gap opens up
+     between them. */
+  @keyframes slide-out-left  { to   { transform: translateX(-100%) rotate(-2deg); opacity: 0.5; } }
+  @keyframes slide-out-right { to   { transform: translateX(100%)  rotate(2deg);  opacity: 0.5; } }
+  @keyframes slide-in-right  { from { transform: translateX(100%)  rotate(2deg);  opacity: 0.5; } }
+  @keyframes slide-in-left   { from { transform: translateX(-100%) rotate(-2deg); opacity: 0.5; } }
+  .card.leaving.next  { animation: slide-out-left 340ms ease-out forwards; }
+  .card.leaving.prev  { animation: slide-out-right 340ms ease-out forwards; }
+  .card.entering.next { animation: slide-in-right 340ms ease-out both; }
+  .card.entering.prev { animation: slide-in-left 340ms ease-out both; }
+  @media (prefers-reduced-motion: reduce) {
+    .card { transition: none; }
+    .card.leaving, .card.entering { animation: none !important; }
+  }
+
   .card-inner {
     border: 1px solid var(--white); border-radius: 8px; padding: 1.5rem 1.25rem 1.75rem;
     min-height: 55vh; min-height: 55dvh; position: relative; overflow: hidden;
@@ -74,6 +98,18 @@
   nav .toggle { grid-column: 1 / -1; order: -1; background: var(--red); border-color: var(--red); font-weight: bold; }
   nav .toggle:active { background: var(--red-dark); color: var(--white); }
   nav a.disabled { color: #4a4a4a; border-color: #333; pointer-events: none; }
+  /* On a touch screen, swiping the card replaces Back/Next. The script adds
+     .swipe (so a browser without it keeps the buttons), and the links stay in
+     the page out of sight: a screen reader's own swipes never reach the page,
+     so it still needs them. A keyboard brings them back into view. */
+  html.swipe nav a[data-nav="card"] {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+  html.swipe nav a[data-nav="card"]:focus-visible {
+    position: static; width: auto; height: auto; margin: 0; padding: 0.5rem;
+    overflow: visible; clip-path: none; white-space: normal; border: 1px solid var(--white);
+  }
   [hidden] { display: none !important; }
   a:focus-visible, summary:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
 
@@ -92,19 +128,21 @@
 </style>
 </head>
 <body>
-<main id="app" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}" data-share-url="{{.SiteURL}}/?lang={{.Lang}}" data-share-text="{{.L.ShareText}}" data-copied="{{.L.ShareCopied}}">
+<main id="app" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}" data-share-url="{{.SiteURL}}/?lang={{.Lang}}" data-share-text="{{.L.ShareText}}" data-copied="{{.L.ShareCopied}}" data-number="{{.Number}}" data-total="{{.Total}}">
 <header>
   <h1>Twisted <span>Tales</span></h1>
   <a class="lang" id="lang-link" href="/lang/{{.Other}}">{{.L.SwitchTo}}</a>
 </header>
-<article class="card" aria-live="polite">
-  <div class="card-inner">
-    <p class="counter" id="card-counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
-    <h2 id="card-title">{{.Card.Title}}</h2>
-    <p class="prompt" id="card-prompt">{{.Card.Prompt}}</p>
-    <div class="solution" id="card-solution"{{if not .Solution}} hidden{{end}}><strong>{{.L.Solution}}</strong> <span id="card-solution-text">{{if .Solution}}{{.Card.Solution}}{{end}}</span></div>
-  </div>
-</article>
+<div class="stage" id="card-stage">
+  <article class="card" aria-live="polite">
+    <div class="card-inner">
+      <p class="counter" id="card-counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
+      <h2 id="card-title">{{.Card.Title}}</h2>
+      <p class="prompt" id="card-prompt">{{.Card.Prompt}}</p>
+      <div class="solution" id="card-solution"{{if not .Solution}} hidden{{end}}><strong>{{.L.Solution}}</strong> <span id="card-solution-text">{{if .Solution}}{{.Card.Solution}}{{end}}</span></div>
+    </div>
+  </article>
+</div>
 <nav>
   {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?solution=1">{{.L.Show}}</a>{{end}}
   <a id="nav-prev" data-nav="card"{{if .Prev}} href="/cards/{{.Prev}}"{{else}} class="disabled" aria-disabled="true"{{end}}>&larr; {{.L.Back}}</a>
@@ -129,13 +167,26 @@
 <script>
 // Progressive enhancement: Back, Next and Show/Hide solution fetch the card as
 // JSON from /api/cards/{n} and fill it into the existing elements, instead of
-// reloading the page. The page is fully server-rendered, so without
-// JavaScript (or if anything fails) the links work as normal links.
+// reloading the page. Changing card also slides the old card away and the new
+// one in, and on a touch screen a swipe across the card does the same, which
+// is why Back/Next are hidden there. The page is fully server-rendered, so
+// without JavaScript (or if anything fails) the links work as normal links.
 (function () {
   var app = document.getElementById('app');
+  var stage = document.getElementById('card-stage');
+  var cardEl = stage.querySelector('.card');
   var latest = 0;
+  var current = Number(app.dataset.number); // the card on screen
+  var total = Number(app.dataset.total);
+  var pending = 0; // the card being loaded, if any: a second swipe starts from there
+  var slides = 0; // a count, so a cut-short slide's cleanup leaves the next one alone
 
   function $(id) { return document.getElementById(id); }
+
+  // Checked per slide, so a preference changed while the page is open is honoured.
+  function allowMotion() {
+    return !window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
 
   // The page address for a card; the same scheme the server renders in its
   // links. The language is not in it: the server takes it from the lang cookie.
@@ -157,6 +208,8 @@
 
   // Fill the card data into the page. Only textContent is used, never HTML.
   function render(card) {
+    current = card.number;
+    pending = 0;
     var shown = card.solution !== undefined;
     $('card-counter').textContent = app.dataset.card + ' ' + card.number + ' ' + app.dataset.of + ' ' + card.total;
     $('card-title').textContent = card.title;
@@ -170,6 +223,37 @@
     setLink($('nav-next'), card.next);
   }
 
+  // Pass the card on screen, and bring the next one in: a copy of the old card
+  // slides out while fill() puts the new text into the card, which slides in.
+  // dir is "next" (out to the left, in from the right) or "prev".
+  function slide(dir, fill) {
+    stage.querySelectorAll('.leaving').forEach(function (el) { el.remove(); }); // left by a slide cut short
+    var leaving = cardEl.cloneNode(true);
+    leaving.removeAttribute('id');
+    leaving.removeAttribute('aria-live');
+    leaving.setAttribute('aria-hidden', 'true');
+    leaving.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
+    leaving.classList.add('leaving', dir);
+    stage.appendChild(leaving);
+    fill();
+    cardEl.classList.add('entering', dir);
+    var token = ++slides;
+    setTimeout(function () {
+      if (token !== slides) return;
+      leaving.remove();
+      cardEl.classList.remove('entering', 'next', 'prev');
+    }, 400);
+  }
+
+  // Move step cards (-1 for Back, 1 for Next) from the card on screen, or from
+  // the one already on its way if a swipe arrives while it loads; the ends stop
+  // it.
+  function go(step) {
+    var n = (pending || current) + step;
+    if (n < 1 || n > total) return;
+    load(pageURL(n, false), 'push');
+  }
+
   // pageHref is a page address such as /cards/3?solution=1; the API
   // takes the same path and query under /api. mode: "push" (new history
   // entry), "replace" or "none" (back/forward).
@@ -178,18 +262,26 @@
     var focused = document.activeElement && document.activeElement.id;
     try {
       var u = new URL(pageHref, location.href);
+      pending = Number(u.pathname.split('/').pop()) || current;
       var res = await fetch('/api' + u.pathname + u.search, { credentials: 'same-origin' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var card = await res.json();
       if (id !== latest) return; // a newer click superseded this one
-      render(card);
+      // The direction comes from the card numbers, so a swipe, a tap and the
+      // browser's own Back/Forward all animate alike. Showing the solution
+      // stays on the same card and does not slide.
+      var dir = card.number > current ? 'next' : card.number < current ? 'prev' : '';
+      if (dir && allowMotion()) slide(dir, function () { render(card); });
+      else render(card);
       if (mode === 'push') history.pushState(null, '', pageHref);
       if (mode === 'replace') history.replaceState(null, '', pageHref);
       if (mode === 'push') window.scrollTo(0, 0);
       var el = focused && $(focused);
       if (el && el.hasAttribute('href')) el.focus();
     } catch (err) {
-      if (id === latest) location.href = pageHref;
+      if (id !== latest) return;
+      pending = 0;
+      location.href = pageHref;
     }
   }
 
@@ -199,10 +291,66 @@
     if (!a) return;
     e.preventDefault();
     if (!a.hasAttribute('href')) return; // disabled Back/Next
-    load(a.href, a.getAttribute('data-nav') === 'card' ? 'push' : 'replace');
+    if (a.getAttribute('data-nav') === 'card') go(a.id === 'nav-next' ? 1 : -1);
+    else load(a.href, 'replace');
   });
 
   window.addEventListener('popstate', function () { load(location.href, 'none'); });
+
+  // Follow one swipe across the card: left for the next card, right for the
+  // previous one, matching the way they slide. A vertical drag is left to the
+  // browser, so the page still scrolls. Touch only: a mouse drag would just
+  // select text, and its Back/Next links stay in view anyway.
+  function swipe() {
+    var start = null; // the drag in progress
+    var MIN = 60;     // a drag shorter than this (and not a flick) is cancelled
+
+    function atEnd(dx) {
+      var a = $(dx < 0 ? 'nav-next' : 'nav-prev');
+      return !a.hasAttribute('href');
+    }
+
+    function reset() {
+      start = null;
+      cardEl.classList.remove('dragging');
+      cardEl.style.transform = '';
+    }
+
+    cardEl.addEventListener('pointerdown', function (e) {
+      if (!start) start = { x: e.clientX, y: e.clientY, t: e.timeStamp, held: false };
+    });
+
+    cardEl.addEventListener('pointermove', function (e) {
+      if (!start) return;
+      var dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (!start.held) {
+        if (Math.abs(dy) > Math.abs(dx)) { start = null; return; } // the page scrolls instead
+        if (Math.abs(dx) < 8) return;
+        start.held = true;
+        cardEl.classList.add('dragging');
+      }
+      // Past the first or last card there is nowhere to go, so the card resists.
+      cardEl.style.transform = 'translateX(' + (atEnd(dx) ? dx / 4 : dx) + 'px)';
+    });
+
+    function release(e, cancelled) {
+      var s = start;
+      if (!s || !s.held) { reset(); return; }
+      var dx = e.clientX - s.x;
+      var flick = Math.abs(dx) > MIN / 2 && Math.abs(dx) > 0.4 * (e.timeStamp - s.t); // px per ms
+      var commit = !cancelled && (Math.abs(dx) > MIN || flick);
+      reset();
+      if (commit) go(dx < 0 ? 1 : -1);
+    }
+
+    cardEl.addEventListener('pointerup', function (e) { release(e, false); });
+    cardEl.addEventListener('pointercancel', function (e) { release(e, true); });
+  }
+
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    document.documentElement.classList.add('swipe'); // hides Back/Next (see the CSS)
+    swipe();
+  }
 
   // Share button (About section). An installed app runs full screen with no
   // browser share menu, so offer one: the native share sheet where there is

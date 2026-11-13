@@ -118,10 +118,12 @@ func TestAboutSection(t *testing.T) {
 }
 
 func TestPageHooksForScript(t *testing.T) {
+	cards, _ := loadCards()
 	body := get(t, "/cards/2").Body.String()
 	for _, want := range []string{
 		`data-card="Card" data-of="of"`, `id="lang-link" href="/lang/ES"`, `data-show="Show solution" data-hide="Hide solution"`,
 		`id="lang-link"`, `id="card-counter"`, `id="card-title"`, `id="card-prompt"`, `id="card-solution-text"`,
+		`id="card-stage"`, `data-number="2" data-total="` + strconv.Itoa(len(cards["EN"])) + `"`,
 		`id="nav-solution" data-nav="solution" href="/cards/2?solution=1"`,
 		`id="nav-prev" data-nav="card" href="/cards/1"`,
 		`id="nav-next" data-nav="card" href="/cards/3"`,
