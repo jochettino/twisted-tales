@@ -43,7 +43,6 @@
      The perspective is what makes the card turn over in 3D rather than squash. */
   .stage { position: relative; perspective: 1400px; }
   .card {
-    position: relative;
     margin: 0 0 1.25rem; touch-action: pan-y; /* a swipe drags the card sideways, a drag up or down scrolls */
     -webkit-tap-highlight-color: transparent; /* no grey flash when the card is tapped */
     transition: height 600ms cubic-bezier(0.4, 0, 0.2, 1), scale 220ms ease-out;
@@ -51,16 +50,8 @@
   /* A card being dragged is lifted off the table: it grows a hair and casts a
      deeper, softer shadow, while the one riding alongside casts a lighter one. */
   .card.dragging { scale: 1.012; user-select: none; -webkit-user-select: none; }
-  .card.dragging .side { box-shadow: 0 0 0 1px #000, 0 24px 46px rgba(196, 20, 28, 0.4); }
   .card.copy { position: absolute; top: 0; left: 0; width: 100%; margin: 0; z-index: 2; pointer-events: none; }
-  .card.copy .side { box-shadow: 0 0 0 1px #000, 0 8px 20px rgba(196, 20, 28, 0.18); }
-  /* One faint edge under the card, shaped like the card itself and hidden
-     behind it: it is the top card of a pile, not a panel. */
-  .card::after {
-    content: ""; position: absolute; left: 5px; right: 5px; bottom: -6px; height: 40px;
-    border: 1px solid var(--white); border-radius: 14px;
-    opacity: 0.18; pointer-events: none; z-index: -1;
-  }
+  .card.copy .side { box-shadow: var(--pile), 0 8px 20px rgba(196, 20, 28, 0.18); }
 
   /* The card turns over to show its solution, as a real one would. The two
      sides sit in the same grid cell, so the card is as tall as the longer one;
@@ -74,9 +65,14 @@
   .side {
     grid-area: 1 / 1; padding: 0.5rem; background: var(--ink);
     border: 3px solid var(--white); border-radius: 14px;
-    box-shadow: 0 0 0 1px #000, 0 12px 30px rgba(196, 20, 28, 0.25);
+    /* The shadow of the card's own shape: a black line that lifts it off the
+       page, a faint edge of the card underneath, then the red glow. Being the
+       shape's shadow, it turns and grows with the card instead of staying put. */
+    --pile: 0 0 0 1px #000, 0 4px 0 -1px #000, 0 9px 0 -3px rgba(244, 241, 234, 0.18);
+    box-shadow: var(--pile), 0 12px 30px rgba(196, 20, 28, 0.25);
     backface-visibility: hidden; -webkit-backface-visibility: hidden;
   }
+  .card.dragging .side { box-shadow: var(--pile), 0 26px 48px rgba(196, 20, 28, 0.42); }
   .side.back { transform: rotateY(180deg); }
   @media (prefers-reduced-motion: reduce) {
     .card, .flipper { transition: none; }
