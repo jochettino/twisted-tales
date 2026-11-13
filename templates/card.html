@@ -44,6 +44,7 @@
   .stage { position: relative; perspective: 1400px; }
   .card {
     margin: 0 0 1.25rem; touch-action: pan-y; /* a swipe drags the card sideways, a drag up or down scrolls */
+    -webkit-tap-highlight-color: transparent; /* no grey flash when the card is tapped */
     transition: height 600ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   .card.dragging { user-select: none; -webkit-user-select: none; }
@@ -100,18 +101,20 @@
   nav .toggle { grid-column: 1 / -1; order: -1; background: var(--red); border-color: var(--red); font-weight: bold; }
   nav .toggle:active { background: var(--red-dark); color: var(--white); }
   nav a.disabled { color: #4a4a4a; border-color: #333; pointer-events: none; }
-  /* On a touch screen, swiping the card replaces Back/Next. The script adds
-     .swipe (so a browser without it keeps the buttons), and the links stay in
-     the page out of sight: a screen reader's own swipes never reach the page,
-     so it still needs them. A keyboard brings them back into view. */
-  html.swipe nav a[data-nav="card"] {
+  /* On a touch screen the card is the control: swiping it changes card and
+     double-tapping it turns it over, so the buttons below are out of the way.
+     The script adds .swipe (so a browser without it keeps the buttons), and the
+     links stay in the page, out of sight: a screen reader's own swipes and taps
+     never reach the page, so it still needs them. A keyboard brings them back. */
+  html.swipe nav a {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
   }
-  html.swipe nav a[data-nav="card"]:focus-visible {
+  html.swipe nav a:focus-visible {
     position: static; width: auto; height: auto; margin: 0; padding: 0.5rem;
     overflow: visible; clip-path: none; white-space: normal; border: 1px solid var(--white);
   }
+  html.swipe nav a:focus-visible.toggle { border-color: var(--red); }
   [hidden] { display: none !important; }
   a:focus-visible, summary:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
 
@@ -494,6 +497,25 @@
   function finger() {
     var drag = null;   // the drag in progress
     var beside = null; // the neighbouring card, riding along
+    var tapped = 0;    // when and where the last tap was, for the double tap
+    var tapX = 0, tapY = 0;
+
+    // Two quick taps in the same place turn the card over, so a solution is
+    // never shown by a stray tap; a tap on its own does nothing.
+    function tap(e, s) {
+      var quick = e.timeStamp - s.t < 250;
+      var still = Math.abs(e.clientX - s.x) < 12 && Math.abs(e.clientY - s.y) < 12;
+      if (!quick || !still) { tapped = 0; return; }
+      if (tapped && e.timeStamp - tapped < 320 &&
+          Math.abs(e.clientX - tapX) < 40 && Math.abs(e.clientY - tapY) < 40) {
+        tapped = 0;
+        load($('nav-solution').getAttribute('href'), 'replace'); // what the button does
+        return;
+      }
+      tapped = e.timeStamp;
+      tapX = e.clientX;
+      tapY = e.clientY;
+    }
 
     function atEnd(step) {
       var n = current + step;
@@ -519,6 +541,7 @@
         if (Math.abs(dx) < 8) return;
         drag.held = true;
         drag.step = dx < 0 ? 1 : -1;
+        tapped = 0; // a drag is not a tap
         cardEl.classList.add('dragging');
         var card = !atEnd(drag.step) && cards[pageURL(current + drag.step, false)];
         if (card) beside = copy(card); // not fetched yet: the card moves on its own
@@ -535,6 +558,7 @@
       if (!s || !s.held) {
         place(0, 0);
         if (beside) { beside.remove(); beside = null; }
+        if (s && !cancelled) tap(e, s);
         return;
       }
       var dx = s.dx;
@@ -551,7 +575,7 @@
   }
 
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
-    document.documentElement.classList.add('swipe'); // hides Back/Next (see the CSS)
+    document.documentElement.classList.add('swipe'); // hides the buttons (see the CSS)
     finger();
   }
 
