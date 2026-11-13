@@ -12,12 +12,12 @@ var cardHTML string
 var pageTmpl = template.Must(template.New("card").Parse(cardHTML))
 
 type labels struct {
-	Card, Of, Back, Next, Show, Hide, Solution, SwitchTo string
-	Help, HelpIntro                                      string
-	HelpSteps                                            []string
-	About, AboutCode, AboutRepo, AboutCards              string
-	Tagline                                              string
-	AboutShare, ShareButton, ShareCopied, ShareText      string
+	Card, Of, Back, Next, Show, Mystery, Solution, SwitchTo string
+	Help, HelpIntro                                         string
+	HelpSteps                                               []string
+	About, AboutCode, AboutRepo, AboutCards                 string
+	Tagline                                                 string
+	AboutShare, ShareButton, ShareCopied, ShareText         string
 }
 
 // siteURL is the public address of the deployed app. Link previews
@@ -33,7 +33,7 @@ const (
 var ui = map[string]labels{
 	"EN": {
 		Card: "Card", Of: "of", Back: "Back", Next: "Next",
-		Show: "Show solution", Hide: "Hide solution", Solution: "Solution:", SwitchTo: "Español",
+		Show: "Show solution", Mystery: "Show the mystery", Solution: "Solution:", SwitchTo: "Español",
 		Help:      "How to play",
 		HelpIntro: "Twisted Tales is a game of lateral thinking. Each card is a strange, usually macabre situation, and your group has to work out what really happened.",
 		HelpSteps: []string{
@@ -56,7 +56,7 @@ var ui = map[string]labels{
 	},
 	"ES": {
 		Card: "Carta", Of: "de", Back: "Atrás", Next: "Siguiente",
-		Show: "Mostrar solución", Hide: "Ocultar solución", Solution: "Solución:", SwitchTo: "English",
+		Show: "Mostrar solución", Mystery: "Mostrar el misterio", Solution: "Solución:", SwitchTo: "English",
 		Help:      "Cómo jugar",
 		HelpIntro: "Twisted Tales es un juego de pensamiento lateral. Cada carta es una situación extraña, normalmente macabra, y el grupo tiene que descubrir qué ocurrió realmente.",
 		HelpSteps: []string{

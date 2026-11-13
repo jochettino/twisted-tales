@@ -62,19 +62,35 @@ func TestSolutionHiddenByDefault(t *testing.T) {
 	cards, _ := loadCards()
 	solution := html.EscapeString(cards["EN"][0].Solution)
 
+	// Without ?solution=1 the card is the right way round, the solution is not
+	// in the page at all, and the side that would show it is hidden from screen
+	// readers.
 	body := get(t, "/cards/1").Body.String()
 	if strings.Contains(body, solution) {
 		t.Error("solution text is in the page without ?solution=1")
 	}
-	if !strings.Contains(body, `id="card-solution" hidden`) {
-		t.Error("solution block should be hidden without ?solution=1")
+	if !strings.Contains(body, `<article class="card" aria-live`) {
+		t.Error("the card should be shown from the front without ?solution=1")
 	}
+	if !strings.Contains(body, `<div class="side back" aria-hidden="true">`) {
+		t.Error("the solution side should be hidden from screen readers without ?solution=1")
+	}
+	if !strings.Contains(body, `>Show solution</a>`) {
+		t.Error("the button should offer the solution without ?solution=1")
+	}
+
 	body = get(t, "/cards/1?solution=1").Body.String()
 	if !strings.Contains(body, solution) {
 		t.Error("solution is not in the page with ?solution=1")
 	}
-	if strings.Contains(body, `id="card-solution" hidden`) {
-		t.Error("solution block should be visible with ?solution=1")
+	if !strings.Contains(body, `<article class="card flipped"`) {
+		t.Error("the page should come with the card already turned over with ?solution=1")
+	}
+	if !strings.Contains(body, `<div class="side front" aria-hidden="true">`) {
+		t.Error("with ?solution=1 the front should be hidden from screen readers")
+	}
+	if !strings.Contains(body, `>Show the mystery</a>`) {
+		t.Error("the button should turn the card back with ?solution=1")
 	}
 }
 
@@ -121,7 +137,7 @@ func TestPageHooksForScript(t *testing.T) {
 	cards, _ := loadCards()
 	body := get(t, "/cards/2").Body.String()
 	for _, want := range []string{
-		`data-card="Card" data-of="of"`, `id="lang-link" href="/lang/ES"`, `data-show="Show solution" data-hide="Hide solution"`,
+		`data-card="Card" data-of="of"`, `id="lang-link" href="/lang/ES"`, `data-show="Show solution" data-mystery="Show the mystery"`,
 		`id="lang-link"`, `id="card-counter"`, `id="card-title"`, `id="card-prompt"`, `id="card-solution-text"`,
 		`id="card-stage"`, `data-number="2" data-total="` + strconv.Itoa(len(cards["EN"])) + `"`,
 		`id="nav-solution" data-nav="solution" href="/cards/2?solution=1"`,

@@ -39,19 +39,38 @@
   .lang { font-family: system-ui, sans-serif; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase;
           text-decoration: none; border: 1px solid var(--muted); padding: 0.4rem 0.7rem; min-height: 2.25rem; display: inline-flex; align-items: center; }
 
+  /* The stage holds the card and, while a card is being dragged, a copy of it.
+     The perspective is what makes the card turn over in 3D rather than squash. */
+  .stage { position: relative; perspective: 1400px; }
   .card {
-    background: var(--ink); border: 3px solid var(--white); border-radius: 14px;
-    padding: 0.5rem; margin: 0 0 1.25rem;
-    box-shadow: 0 0 0 1px #000, 0 12px 30px rgba(196, 20, 28, 0.25);
-    touch-action: pan-y; /* a swipe drags the card sideways, a drag up or down scrolls */
+    margin: 0 0 1.25rem; touch-action: pan-y; /* a swipe drags the card sideways, a drag up or down scrolls */
+    transition: height 600ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* The stage holds the card and, while a card is being dragged or slid away, a
-     copy of the card beside it. */
-  .stage { position: relative; }
   .card.dragging { user-select: none; -webkit-user-select: none; }
   .card.copy { position: absolute; top: 0; left: 0; width: 100%; margin: 0; z-index: 2; pointer-events: none; }
 
+  /* The card turns over to show its solution, as a real one would. The two
+     sides sit in the same grid cell, so the card is as tall as the longer one;
+     the script grows it while it turns instead of letting it jump. */
+  .flipper {
+    display: grid; grid-template-rows: 100%; height: 100%; /* while the card is given a height, the sides follow it */
+    transform-style: preserve-3d; -webkit-transform-style: preserve-3d;
+    transition: transform 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .card.flipped .flipper { transform: rotateY(180deg); }
+  .side {
+    grid-area: 1 / 1; padding: 0.5rem; background: var(--ink);
+    border: 3px solid var(--white); border-radius: 14px;
+    box-shadow: 0 0 0 1px #000, 0 12px 30px rgba(196, 20, 28, 0.25);
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  }
+  .side.back { transform: rotateY(180deg); }
+  @media (prefers-reduced-motion: reduce) {
+    .card, .flipper { transition: none; }
+  }
+
   .card-inner {
+    height: 100%; /* so a card given a height while it turns clips its own text */
     border: 1px solid var(--white); border-radius: 8px; padding: 1.5rem 1.25rem 1.75rem;
     min-height: 55vh; min-height: 55dvh; position: relative; overflow: hidden;
   }
@@ -111,23 +130,33 @@
 </style>
 </head>
 <body>
-<main id="app" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-hide="{{.L.Hide}}" data-share-url="{{.SiteURL}}/?lang={{.Lang}}" data-share-text="{{.L.ShareText}}" data-copied="{{.L.ShareCopied}}" data-number="{{.Number}}" data-total="{{.Total}}">
+<main id="app" data-card="{{.L.Card}}" data-of="{{.L.Of}}" data-show="{{.L.Show}}" data-mystery="{{.L.Mystery}}" data-share-url="{{.SiteURL}}/?lang={{.Lang}}" data-share-text="{{.L.ShareText}}" data-copied="{{.L.ShareCopied}}" data-number="{{.Number}}" data-total="{{.Total}}">
 <header>
   <h1>Twisted <span>Tales</span></h1>
   <a class="lang" id="lang-link" href="/lang/{{.Other}}">{{.L.SwitchTo}}</a>
 </header>
 <div class="stage" id="card-stage">
-  <article class="card" aria-live="polite">
-    <div class="card-inner">
-      <p class="counter" id="card-counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
-      <h2 id="card-title">{{.Card.Title}}</h2>
-      <p class="prompt" id="card-prompt">{{.Card.Prompt}}</p>
-      <div class="solution" id="card-solution"{{if not .Solution}} hidden{{end}}><strong>{{.L.Solution}}</strong> <span id="card-solution-text">{{if .Solution}}{{.Card.Solution}}{{end}}</span></div>
+  <article class="card{{if .Solution}} flipped{{end}}" aria-live="polite">
+    <div class="flipper">
+      <div class="side front"{{if .Solution}} aria-hidden="true"{{end}}>
+        <div class="card-inner">
+          <p class="counter" id="card-counter">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
+          <h2 id="card-title">{{.Card.Title}}</h2>
+          <p class="prompt" id="card-prompt">{{.Card.Prompt}}</p>
+        </div>
+      </div>
+      <div class="side back"{{if not .Solution}} aria-hidden="true"{{end}}>
+        <div class="card-inner">
+          <p class="counter" id="card-counter-back">{{.L.Card}} {{.Number}} {{.L.Of}} {{.Total}}</p>
+          <h2 id="card-title-back">{{.Card.Title}}</h2>
+          <p class="solution"><strong>{{.L.Solution}}</strong> <span id="card-solution-text">{{if .Solution}}{{.Card.Solution}}{{end}}</span></p>
+        </div>
+      </div>
     </div>
   </article>
 </div>
 <nav>
-  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}">{{.L.Hide}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?solution=1">{{.L.Show}}</a>{{end}}
+  {{if .Solution}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}">{{.L.Mystery}}</a>{{else}}<a class="toggle" id="nav-solution" data-nav="solution" href="/cards/{{.Number}}?solution=1">{{.L.Show}}</a>{{end}}
   <a id="nav-prev" data-nav="card"{{if .Prev}} href="/cards/{{.Prev}}"{{else}} class="disabled" aria-disabled="true"{{end}}>&larr; {{.L.Back}}</a>
   <a id="nav-next" data-nav="card"{{if .Next}} href="/cards/{{.Next}}"{{else}} class="disabled" aria-disabled="true"{{end}}>{{.L.Next}} &rarr;</a>
 </nav>
@@ -166,6 +195,7 @@
   var cards = {};                           // page address -> card, kept ahead of time
   var fetching = {};                        // page address -> prefetch in flight
   var settle = null;                        // end the slide still running, now
+  var unsize = 0;                           // pending timer that drops the height a turning card was given
   var SLIDE = 340;                          // ms for a card to cross the screen
   var MIN = 60;                             // a shorter drag, if not a flick, is a tap
 
@@ -198,19 +228,46 @@
   // Only textContent is used, never HTML.
   function fill(el, card) {
     var q = function (id) { return el.querySelector('#' + id); };
-    var open = card.solution !== undefined;
-    q('card-counter').textContent = app.dataset.card + ' ' + card.number + ' ' + app.dataset.of + ' ' + card.total;
+    var counter = app.dataset.card + ' ' + card.number + ' ' + app.dataset.of + ' ' + card.total;
+    q('card-counter').textContent = counter;
+    q('card-counter-back').textContent = counter;
     q('card-title').textContent = card.title;
+    q('card-title-back').textContent = card.title;
     q('card-prompt').textContent = card.prompt;
-    q('card-solution-text').textContent = open ? card.solution : '';
-    q('card-solution').hidden = !open;
+    q('card-solution-text').textContent = card.solution === undefined ? '' : card.solution;
+  }
+
+  // Show one side of the card or the other, and nothing of the other one to a
+  // screen reader. The solution side is usually the longer one, so the card is
+  // given a height while it turns: it grows or shrinks into place instead of
+  // jumping the moment the text arrives, and the buttons under it move with it.
+  // from is the height the card had before the new text.
+  function turn(open, from) {
+    var was = cardEl.classList.contains('flipped');
+    cardEl.classList.toggle('flipped', open);
+    hide(cardEl.querySelector('.side.front'), open);
+    hide(cardEl.querySelector('.side.back'), !open);
+    cardEl.style.height = '';
+    if (open === was) return; // same side, new text: the sides size it themselves
+    var to = cardEl.offsetHeight;
+    if (!allowMotion() || !from || from === to) return;
+    cardEl.style.height = from + 'px';
+    cardEl.getBoundingClientRect(); // flush it, so the height starts from there
+    cardEl.style.height = to + 'px';
+    clearTimeout(unsize);
+    unsize = setTimeout(function () { cardEl.style.height = ''; }, 640);
+  }
+
+  function hide(el, on) {
+    if (on) el.setAttribute('aria-hidden', 'true');
+    else el.removeAttribute('aria-hidden');
   }
 
   // The buttons around the card, and the cards to have ready next.
   function links(card) {
     var open = card.solution !== undefined;
     var toggle = $('nav-solution');
-    toggle.textContent = open ? app.dataset.hide : app.dataset.show;
+    toggle.textContent = open ? app.dataset.mystery : app.dataset.show;
     toggle.setAttribute('href', pageURL(card.number, !open));
     setLink($('nav-prev'), card.prev);
     setLink($('nav-next'), card.next);
@@ -220,10 +277,12 @@
 
   // Fill the page with a card.
   function render(card) {
+    var from = cardEl.offsetHeight; // before the new text changes it
     current = card.number;
     wanted = 0;
     fill(cardEl, card);
     links(card);
+    turn(card.solution !== undefined, from);
   }
 
   // Ask for a card for real. The page makes this request whenever it opens a
@@ -268,7 +327,13 @@
   // The caller positions it and throws it away when done with it.
   function copy(card) {
     var el = cardEl.cloneNode(true);
-    if (card) fill(el, card); // while it still has the ids fill() looks up
+    if (card) {
+      fill(el, card); // while it still has the ids fill() looks up
+      el.classList.remove('flipped'); // a copy always stands in for a card's front
+      el.style.height = '';
+      hide(el.querySelector('.side.front'), false);
+      hide(el.querySelector('.side.back'), true);
+    }
     el.removeAttribute('id');
     el.removeAttribute('aria-live');
     el.setAttribute('aria-hidden', 'true');
@@ -322,6 +387,8 @@
       inn.cancel();
       into.remove();
       cardEl.style.transform = '';
+      cardEl.classList.remove('flipped'); // the next card is always shown from the front
+      cardEl.style.height = '';
       render(card);
     }
     settle = finish;
