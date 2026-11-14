@@ -32,6 +32,7 @@ Cards are embedded into the binary, so restart the server after adding or editin
 - **Cards** are JSON files in `resources/`, named `xxx-smalltitle-LANG.json` (e.g. `001-glass-of-water-EN.json`), with `title`, `prompt` and `solution` fields. Every card must exist in every language (EN and ES).
 - **Frontend** is server-rendered HTML and CSS in `templates/card.html`. A small inline script (no libraries) makes Back, Next and Show/Hide solution fetch the card as JSON from `GET /api/cards/{n}?solution=1` and update only the card instead of reloading the page; without JavaScript they are ordinary links. Changing card slides the old one away and the new one in; on a touch screen the card itself is the control — swipe for the next or previous card, double-tap to turn it over — and the buttons are hidden, with a one-off hint saying so. "Show solution" turns the card over in 3D to reveal the solution on the back.
 - **User state** (selected language and current card) is remembered in browser cookies, so the server stores nothing. Reopening the site resumes where you left off. Cookies are marked `Secure` when served over https, and still work on plain `http://localhost`.
+- **Analytics** is [Vercel Web Analytics](https://vercel.com/docs/analytics): a script tag Vercel serves under `/_vercel`, no npm package, no dependency and no cookies.
 
 ## Testing
 

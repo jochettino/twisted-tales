@@ -140,6 +140,7 @@ func TestPageHooksForScript(t *testing.T) {
 		`data-card="Card" data-of="of"`, `id="lang-link" href="/lang/ES"`, `data-show="Show solution" data-mystery="Show the mystery"`,
 		`id="lang-link"`, `id="card-counter"`, `id="card-title"`, `id="card-prompt"`, `id="card-solution-text"`,
 		`id="card-stage"`, `id="card-hint"`, `data-number="2" data-total="` + strconv.Itoa(len(cards["EN"])) + `"`,
+		`src="/_vercel/insights/script.js"`, // Vercel Web Analytics
 		`id="nav-solution" data-nav="solution" href="/cards/2?solution=1"`,
 		`id="nav-prev" data-nav="card" href="/cards/1"`,
 		`id="nav-next" data-nav="card" href="/cards/3"`,

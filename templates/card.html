@@ -18,6 +18,11 @@
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
 <meta name="twitter:card" content="summary">
+<!-- Vercel Web Analytics: no npm package and no server route of ours, just the
+     script Vercel serves under /_vercel. The stub queues calls made before the
+     script itself has loaded (see pageview() in the script at the bottom). -->
+<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>
 <style>
   :root { --red: #c4141c; --red-dark: #7a0b10; --white: #f4f1ea; --muted: #8d8a85; --ink: #050505; }
   * { box-sizing: border-box; }
@@ -289,6 +294,12 @@
     else el.removeAttribute('aria-hidden');
   }
 
+  // Vercel Web Analytics counts a page load by itself. Moving between cards
+  // changes the address without one, so it has to be told.
+  function pageview() {
+    if (window.va) window.va('pageview');
+  }
+
   // The buttons around the card, and the cards to have ready next.
   function links(card) {
     var open = card.solution !== undefined;
@@ -488,6 +499,7 @@
       var dir = card.number > current ? 'next' : card.number < current ? 'prev' : '';
       if (dir) {
         pass(dir, card, dx || 0, beside);
+        pageview(); // a card is a page as far as analytics goes
       } else {
         if (beside) beside.remove();
         render(card);

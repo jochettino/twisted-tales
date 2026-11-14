@@ -22,6 +22,7 @@ No external dependencies (stdlib only, Go 1.22+ for method/path-pattern routing)
 - `templates/card.html`: the frontend (HTML and CSS), embedded into the binary.
 - `static.go` and `static/`: the favicon, the Apple and Android home-screen icons and `site.webmanifest`, embedded with `go:embed` and served from the site root (`/favicon.ico`, `/apple-touch-icon.png`, `/site.webmanifest`, ...). The red-moon artwork is the maintainer's own. To add or rename a file, update `staticFiles` in `static.go`, the `<link>` tags in the `<head>` of `templates/card.html`, and the manifest. The manifest has no maskable icons because the moon is not padded for a mask. Link previews use `og:image` with the absolute `siteURL` in `template.go`.
 - `*_test.go`: tests for card loading/navigation (`cards_test.go`) and HTTP routes (`main_test.go`). Route tests load the real cards in `resources/`.
+- Analytics: Vercel Web Analytics, with no dependency and no route of ours. `templates/card.html` carries the documented stub plus `<script defer src="/_vercel/insights/script.js">`, which Vercel serves itself (locally it is just a 404), and the script calls `window.va('pageview')` when a change of card replaces the address, because that soft navigation would otherwise go uncounted. It is enabled in the Vercel project, sets no cookies, and needs no consent banner. Custom events would need a paid plan and are not used.
 
 Behaviour that spans several files:
 
