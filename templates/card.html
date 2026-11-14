@@ -411,11 +411,20 @@
       settle = null;
       out.cancel();
       inn.cancel();
-      into.remove();
       cardEl.style.transform = '';
+      // The card on screen may still be turned over: turn it back while the
+      // copy still hides it, and without animating, so the new card arrives
+      // showing its front instead of flipping over once the copy is gone.
+      var flipper = cardEl.querySelector('.flipper');
+      cardEl.style.transition = 'none';
+      flipper.style.transition = 'none';
       cardEl.classList.remove('flipped'); // the next card is always shown from the front
       cardEl.style.height = '';
       render(card);
+      cardEl.getBoundingClientRect(); // flush the reset, so it is not animated when the styles come back
+      cardEl.style.transition = '';
+      flipper.style.transition = '';
+      into.remove();
     }
     settle = finish;
     Promise.all([out.finished, inn.finished]).then(finish, finish);
